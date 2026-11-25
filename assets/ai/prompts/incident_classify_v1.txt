@@ -1,0 +1,8 @@
+Classify the incident below and select the most applicable provisions ONLY from the candidate sections provided.
+Return ONLY valid JSON with keys: category, summary, cited_sections (array of {act_code, section_number, rationale}), next_steps (array of strings), evidence_to_keep (array of strings), where_to_report.
+
+Candidate sections:
+{{candidates}}
+
+Incident description:
+{{incident_text}}

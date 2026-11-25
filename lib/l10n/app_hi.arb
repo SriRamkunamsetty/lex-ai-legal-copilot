@@ -1,0 +1,20 @@
+{
+  "@@locale": "hi",
+  "appName": "लेक्स (Lex)",
+  "navHome": "होम",
+  "navScan": "स्कैन",
+  "navAsk": "पूछें",
+  "navLibrary": "लाइब्रेरी",
+  "homeGreeting": "नमस्ते",
+  "homeHeading": "आपका कानूनी डेस्क",
+  "scanCtaTitle": "दस्तावेज़ स्कैन करें",
+  "scanCtaSubtitle": "नोटिस, अनुबंध या आदेश",
+  "askPromptHint": "लेक्स से कोई भी कानूनी प्रश्न पूछें…",
+  "trustNotice": "आधिकारिक कानून के पाठ से सत्यापित करें — यह कानूनी सलाह नहीं है।",
+  "biometricUnlockTitle": "लेक्स अनलॉक करें",
+  "biometricUnlockSubtitle": "अपनी एन्क्रिप्टेड कानूनी फ़ाइलें देखने के लिए बायोमेट्रिक्स सत्यापित करें।",
+  "biometricUnlockButton": "अनलॉक करें",
+  "exportMyData": "मेरा डेटा निर्यात करें",
+  "deleteAllData": "सारा डेटा हटाएं",
+  "privacyNoticeTitle": "गोपनीयता सूचना"
+}

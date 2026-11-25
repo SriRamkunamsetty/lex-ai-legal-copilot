@@ -1,0 +1,20 @@
+{
+  "@@locale": "en",
+  "appName": "Lex",
+  "navHome": "Home",
+  "navScan": "Scan",
+  "navAsk": "Ask",
+  "navLibrary": "Library",
+  "homeGreeting": "Good day",
+  "homeHeading": "Your legal desk",
+  "scanCtaTitle": "Scan a document",
+  "scanCtaSubtitle": "Notice, contract or order",
+  "askPromptHint": "Ask Lex anything legal…",
+  "trustNotice": "Verify with official statutory text — not legal advice.",
+  "biometricUnlockTitle": "Unlock Lex",
+  "biometricUnlockSubtitle": "Verify with biometrics to view your encrypted legal files.",
+  "biometricUnlockButton": "Unlock",
+  "exportMyData": "Export my data",
+  "deleteAllData": "Delete all data",
+  "privacyNoticeTitle": "Privacy notice"
+}

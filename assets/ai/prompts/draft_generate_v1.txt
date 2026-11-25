@@ -1,0 +1,6 @@
+Draft a clean, India-appropriate {{template_name}} using the supplied fields.
+For any missing fact, insert an explicit bracketed placeholder like [Landlord Name] or [Monthly Rent].
+Always include a "LAWYER REVIEW NOTICE: Review with a qualified advocate before signing or filing." section at the end.
+
+Fields JSON:
+{{fields_json}}

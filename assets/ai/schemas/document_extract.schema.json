@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "document_type",
+    "parties",
+    "dates",
+    "deadlines",
+    "amounts",
+    "plain_language_summary"
+  ],
+  "properties": {
+    "document_type": { "type": "string" },
+    "parties": { "type": "array" },
+    "dates": { "type": "array" },
+    "deadlines": { "type": "array" },
+    "amounts": { "type": "array" },
+    "plain_language_summary": { "type": "string" },
+    "key_risks": { "type": "array" }
+  }
+}

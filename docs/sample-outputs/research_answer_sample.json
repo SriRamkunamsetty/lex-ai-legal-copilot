@@ -1,0 +1,22 @@
+{
+  "question": "My mobile phone was snatched near the metro station. What sections and complaint process apply?",
+  "confidence": "medium",
+  "citations": [
+    {
+      "act_code": "BNS",
+      "section_number": "304",
+      "section_title": "Snatching",
+      "verified_in_local_corpus": true
+    },
+    {
+      "act_code": "BNSS",
+      "section_number": "173",
+      "section_title": "Information in cognizable cases",
+      "verified_in_local_corpus": true
+    }
+  ],
+  "dropped_unverified_citations": 0,
+  "reasoning_trail": "Retrieved local corpus entries BNS 304 and BNSS 173; verified every cited provision against bundled Gazette text.",
+  "counter_arguments": "Facts determine whether force/injury elevates the act from snatching (BNS 304) to robbery (BNS 309). Preserve CCTV locations and IMEI proof.",
+  "notice": "Verify with official statutory text — not legal advice."
+}

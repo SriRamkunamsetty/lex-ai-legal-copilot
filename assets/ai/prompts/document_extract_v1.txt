@@ -1,0 +1,6 @@
+Extract structured fields from this scanned Indian legal document OCR text and return ONLY valid JSON matching the schema.
+Fields required: document_type, parties (array), dates (array), deadlines (array), amounts (array), plain_language_summary, key_risks (array).
+Do not fabricate names, amounts, or dates not visible in the text.
+
+Document OCR text:
+{{document_text}}

@@ -1,0 +1,12 @@
+Answer the user's Indian legal question using ONLY the retrieved statutory excerpts below.
+Cite each provision inline like [BNS 304].
+Also provide:
+- "Reasoning trail:" (brief 2-3 bullet retrieval & logic summary)
+- "Counter-arguments / edge cases:" (brief exceptions or opposing considerations)
+- "Verify with official statutory text — this is legal information, not legal advice."
+
+Retrieved statutory context:
+{{corpus_context}}
+
+Question:
+{{question}}

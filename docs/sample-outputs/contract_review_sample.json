@@ -1,0 +1,21 @@
+{
+  "document_title": "Vendor_Agreement_Sample.txt",
+  "risk_score": 72,
+  "risk_label": "Moderate risk",
+  "clauses": [
+    {
+      "clause_title": "Indemnity & Liability Cap",
+      "risk_level": "high",
+      "original_excerpt": "Service Provider shall indemnify Client against all losses without limit.",
+      "reason": "Liability appears uncapped. Standard Indian commercial agreements cap direct liability at 12 months of fees paid.",
+      "suggested_rewrite": "Each party shall indemnify the other only for direct, proven third-party claims, subject to an aggregate cap equal to fees paid in the preceding twelve (12) months."
+    },
+    {
+      "clause_title": "Mutual Termination & Cure Period",
+      "risk_level": "medium",
+      "original_excerpt": "Client may terminate immediately without notice, whereas Service Provider may not terminate before 24 months.",
+      "reason": "Asymmetric termination creates business continuity exposure without a breach cure window.",
+      "suggested_rewrite": "Either party may terminate for convenience on thirty (30) days written notice, or for material breach remaining uncured fifteen (15) days after notice."
+    }
+  ]
+}

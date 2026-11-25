@@ -1,0 +1,7 @@
+Review the contract clauses below for an Indian party. Return ONLY valid JSON with keys:
+- risk_score (integer 0-100, higher = riskier)
+- risk_label ("Low risk" | "Moderate risk" | "High risk")
+- clauses (array of {clause_title, original_excerpt, risk_level ("high"|"medium"|"low"), reason, suggested_rewrite})
+
+Contract text:
+{{contract_text}}

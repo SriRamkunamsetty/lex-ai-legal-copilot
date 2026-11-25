@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["title", "body", "missing_placeholders", "mandatory_clauses_ok"],
+  "properties": {
+    "title": { "type": "string" },
+    "body": { "type": "string" },
+    "missing_placeholders": { "type": "array" },
+    "mandatory_clauses_ok": { "type": "boolean" }
+  }
+}

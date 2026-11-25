@@ -1,0 +1,20 @@
+{
+  "@@locale": "te",
+  "appName": "లెక్స్ (Lex)",
+  "navHome": "హోమ్",
+  "navScan": "స్కాన్",
+  "navAsk": "అడగండి",
+  "navLibrary": "లైబ్రరీ",
+  "homeGreeting": "నమస్కారం",
+  "homeHeading": "మీ న్యాయ సహాయ డెస్క్",
+  "scanCtaTitle": "పత్రాన్ని స్కాన్ చేయండి",
+  "scanCtaSubtitle": "నోటీసు, ఒప్పందం లేదా ఉత్తర్వు",
+  "askPromptHint": "లెక్స్‌ను ఏదైనా న్యాయ ప్రశ్న అడగండి…",
+  "trustNotice": "అధికారిక చట్ట పాఠంతో నిర్ధారించుకోండి — ఇది న్యాయ సలహా కాదు.",
+  "biometricUnlockTitle": "లెక్స్‌ను అన్‌లాక్ చేయండి",
+  "biometricUnlockSubtitle": "మీ ఎన్‌క్రిప్ట్ చేసిన న్యాయ ఫైళ్లను చూడటానికి బయోమెట్రిక్స్ నిర్ధారించండి.",
+  "biometricUnlockButton": "అన్‌లాక్",
+  "exportMyData": "నా డేటాను ఎగుమతి చేయండి",
+  "deleteAllData": "అన్ని డేటాను తొలగించండి",
+  "privacyNoticeTitle": "గోప్యతా నోటీసు"
+}

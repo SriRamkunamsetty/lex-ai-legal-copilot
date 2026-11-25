@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "category",
+    "summary",
+    "cited_sections",
+    "next_steps",
+    "evidence_to_keep",
+    "where_to_report"
+  ],
+  "properties": {
+    "category": { "type": "string" },
+    "summary": { "type": "string" },
+    "cited_sections": { "type": "array" },
+    "next_steps": { "type": "array" },
+    "evidence_to_keep": { "type": "array" },
+    "where_to_report": { "type": "string" }
+  }
+}
