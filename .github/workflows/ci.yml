@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 jobs:
-  verify:
+  flutter-verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,13 +17,29 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
-      - name: Run code generation
-        run: dart run build_runner build
+      - name: Generate localizations and Riverpod/Drift/GoRouter code
+        run: |
+          flutter gen-l10n
+          dart run build_runner build --delete-conflicting-outputs
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test
-      - name: Analyze
+      - name: Analyze with fatal infos
         run: flutter analyze --fatal-infos
-      - name: Run tests
+      - name: Run full Flutter test & Module J eval suite
         run: flutter test
       - name: Build Android dev APK
         run: flutter build apk --flavor dev --debug -t lib/main_dev.dart
+
+  backend-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt pymupdf requests bandit
+      - name: Static security scan (Bandit)
+        run: python -m bandit -r backend/app -ll -q
+      - name: Verify Knowledge Pack SHA-256 & run pytest suite
+        run: python -m pytest backend/tests/ -v

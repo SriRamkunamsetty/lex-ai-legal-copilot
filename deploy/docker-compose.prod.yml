@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lex
+      POSTGRES_USER: lex_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in environment}
+    volumes:
+      - lex_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lex_app -d lex"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LEX_ENVIRONMENT: production
+      LEX_DATABASE_URL: postgresql+asyncpg://lex_app:${POSTGRES_PASSWORD}@postgres:5432/lex
+      LEX_DEVICE_TOKEN_SECRET: ${LEX_DEVICE_TOKEN_SECRET:?Set LEX_DEVICE_TOKEN_SECRET}
+      LEX_ADMIN_API_KEY_HASH: ${LEX_ADMIN_API_KEY_HASH:?Set LEX_ADMIN_API_KEY_HASH}
+      LEX_GEMINI_API_KEY: ${LEX_GEMINI_API_KEY:-}
+      LEX_CORS_ORIGINS: '["https://lex.example.in"]'
+    ports:
+      - "127.0.0.1:8000:8000"
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+
+volumes:
+  lex_pgdata:

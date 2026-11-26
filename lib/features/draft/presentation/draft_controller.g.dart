@@ -47,7 +47,7 @@ final class DraftControllerProvider
   }
 }
 
-String _$draftControllerHash() => r'ac92e5695c19ca32982c79ce5b8e914bccf484de';
+String _$draftControllerHash() => r'b73a000754aa16deecd8c171ee77d840e2e6f7c9';
 
 /// Manages legal drafting templates, scan prefill, `[placeholder]` self-check,
 /// encrypted Library save, and PDF export.

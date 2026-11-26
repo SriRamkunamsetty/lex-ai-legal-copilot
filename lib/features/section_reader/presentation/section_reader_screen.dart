@@ -8,11 +8,12 @@ import 'package:lex_copilot/core/widgets/widgets.dart';
 import 'package:lex_copilot/features/chat/presentation/chat_controller.dart';
 import 'package:lex_copilot/features/library/presentation/library_providers.dart';
 import 'package:lex_copilot/legal_corpus/models/legal_section.dart';
+import 'package:lex_copilot/legal_corpus/packs/knowledge_pack_service.dart';
 import 'package:lex_copilot/legal_corpus/providers/corpus_providers.dart';
 import 'package:share_plus/share_plus.dart';
 
-/// Offline Statutory Section Reader displaying official text, plain-language
-/// summary, punishment, IPC/CrPC/IEA cross-reference, related sections,
+/// Offline Statutory & Constitutional Section Reader displaying official text,
+/// separated amendment/judicial footnotes, plain-language summary, cross-refs,
 /// bookmarks, and sharing.
 class SectionReaderScreen extends ConsumerStatefulWidget {
   /// Creates a [SectionReaderScreen] for [act] and [sectionNumber].
@@ -408,6 +409,17 @@ class _SectionReaderScreenState extends ConsumerState<SectionReaderScreen> {
                   ),
                 ],
                 const SizedBox(height: 16),
+                if (section.actCode == 'CONST' ||
+                    section.actCode == 'DPDP_2023' ||
+                    section.actCode == 'IT_2000')
+                  Text(
+                    KnowledgePackService.stalenessNotice,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.45,
+                      color: tokens.secondaryText,
+                    ),
+                  ),
                 Text(
                   'Source: ${section.actName} (${section.sourceUrl}). Verify with official text — not legal advice.',
                   style: TextStyle(

@@ -165,20 +165,33 @@ class ScanController extends _$ScanController {
               ? DateTime.now().add(Duration(days: retentionDays))
               : null;
 
-          var storedPath = state.pages.first.path;
-          if (settings.encryptLocalFiles &&
-              state.pages.first.bytes.isNotEmpty) {
-            final encRes = await ref
-                .read(encryptedFileStoreProvider)
-                .writeBytes(
-                  fileName: state.pages.first.fileName,
-                  plainBytes: state.pages.first.bytes,
-                  encrypt: true,
-                );
-            if (encRes case Success(:final value)) {
-              storedPath = value;
+          final storedPaths = <String>[];
+          if (settings.encryptLocalFiles) {
+            final fileStore = ref.read(encryptedFileStoreProvider);
+            for (final page in state.pages) {
+              if (page.bytes.isEmpty) {
+                storedPaths.add(page.path);
+                continue;
+              }
+              final encRes = await fileStore.writeBytes(
+                fileName: page.fileName,
+                plainBytes: page.bytes,
+                encrypt: true,
+              );
+              if (encRes case Success(:final value)) {
+                storedPaths.add(value);
+              } else {
+                storedPaths.add(page.path);
+              }
+            }
+          } else {
+            for (final page in state.pages) {
+              storedPaths.add(page.path);
             }
           }
+          final storedPath = storedPaths.isNotEmpty
+              ? storedPaths.first
+              : state.pages.first.path;
 
           final library = ref.read(libraryRepositoryProvider);
           await library.saveScan(
@@ -196,6 +209,7 @@ class ScanController extends _$ScanController {
                   'amounts': value.amounts,
                   'plain_language_summary': value.plainLanguageSummary,
                   'key_risks': value.keyRisks,
+                  'stored_page_paths': storedPaths,
                 }),
               ),
               pageCount: Value(value.pageCount),

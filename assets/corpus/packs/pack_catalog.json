@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-26T14:06:53.830004+00:00",
+  "packs": [
+    {
+      "pack_id": "constitution_in_2026_v1",
+      "pack_name": "Constitution of India (As on 1st May, 2026)",
+      "asset_path": "assets/corpus/packs/constitution_in_2026_v1.json",
+      "jurisdiction": "India",
+      "version": "2026.05.01",
+      "source_authority": "Government of India, Ministry of Law and Justice, Legislative Department",
+      "publication_date": "2026-05-01",
+      "effective_date": "2026-04-16",
+      "sha256": "adce922966cc24cf03168aa2e2e30ae058eaca631954fc7031823c9790bbdb6b",
+      "provision_count": 513,
+      "footnote_count": 730,
+      "reference_count": 882,
+      "relation_count": 1334,
+      "size_bytes": 2248565
+    },
+    {
+      "pack_id": "central_priority_acts_v1",
+      "pack_name": "Priority Central Civil, Cyber & Commercial Acts",
+      "asset_path": "assets/corpus/packs/central_priority_acts_v1.json",
+      "jurisdiction": "India",
+      "version": "1.0.0",
+      "source_authority": "India Code & Ministry of Electronics and Information Technology (MeitY)",
+      "publication_date": "2026-05-01",
+      "effective_date": "2026-05-01",
+      "sha256": "3d9424a13770ad4d14dcc7f3b2a6314269da3f9c545d9f78a7bde73671bc3389",
+      "provision_count": 61,
+      "instruments": [
+        {
+          "instrument_id": "DPDP_2023",
+          "instrument_type": "central_act",
+          "title": "The Digital Personal Data Protection Act, 2023",
+          "short_code": "DPDP_2023",
+          "act_number": "Act No. 22 of 2023",
+          "source_authority": "Ministry of Electronics and Information Technology (MeitY) / Gazette of India",
+          "source_url": "https://www.meity.gov.in/static/uploads/2024/06/2bf1f0e9f04e6fb4f8fef35e82c42aa5.pdf",
+          "edition_date": "2023-08-11",
+          "full_text_available": true,
+          "verification_status": "verified",
+          "provision_count": 31
+        },
+        {
+          "instrument_id": "IT_2000",
+          "instrument_type": "central_act",
+          "title": "The Information Technology Act, 2000",
+          "short_code": "IT_2000",
+          "act_number": "Act No. 21 of 2000",
+          "source_authority": "India Code / Legislative Department",
+          "source_url": "https://www.indiacode.nic.in/bitstream/123456789/13116/1/it_act_2000_updated.pdf",
+          "edition_date": "2000-10-17",
+          "full_text_available": true,
+          "verification_status": "verified",
+          "provision_count": 30
+        },
+        {
+          "instrument_id": "ICA_1872",
+          "instrument_type": "central_act",
+          "title": "The Indian Contract Act, 1872",
+          "short_code": "ICA_1872",
+          "act_number": "Act No. 9 of 1872",
+          "source_authority": "India Code / Legislative Department",
+          "source_url": "https://www.indiacode.nic.in/bitstream/123456789/2187/2/A187209.pdf",
+          "edition_date": "1872-09-01",
+          "full_text_available": false,
+          "verification_status": "pending_review",
+          "provision_count": 0
+        },
+        {
+          "instrument_id": "NI_1881",
+          "instrument_type": "central_act",
+          "title": "The Negotiable Instruments Act, 1881",
+          "short_code": "NI_1881",
+          "act_number": "Act No. 26 of 1881",
+          "source_authority": "India Code / Legislative Department",
+          "source_url": "https://www.indiacode.nic.in/bitstream/123456789/2189/1/A1881-26.pdf",
+          "edition_date": "1882-03-01",
+          "full_text_available": false,
+          "verification_status": "pending_review",
+          "provision_count": 0
+        },
+        {
+          "instrument_id": "CPC_1908",
+          "instrument_type": "central_act",
+          "title": "The Code of Civil Procedure, 1908",
+          "short_code": "CPC_1908",
+          "act_number": "Act No. 5 of 1908",
+          "source_authority": "India Code / Legislative Department",
+          "source_url": "https://www.indiacode.nic.in/bitstream/123456789/2191/3/A1908-05.pdf",
+          "edition_date": "1909-01-01",
+          "full_text_available": false,
+          "verification_status": "pending_review",
+          "provision_count": 0
+        }
+      ],
+      "size_bytes": 212570
+    }
+  ],
+  "base_criminal_corpus": {
+    "pack_id": "bns_bnss_bsa_v1",
+    "asset_path": "assets/corpus/indian_law_corpus_v1.json",
+    "provision_count": 1059
+  }
+}

@@ -300,6 +300,11 @@ class _AccentSwatches extends StatelessWidget {
 
   static const List<({LexAccentPreset preset, Color color, String name})>
   _swatches = [
+    (
+      preset: LexAccentPreset.navyGold,
+      color: Color(0xFF13294B),
+      name: 'Navy & Gold',
+    ),
     (preset: LexAccentPreset.indigo, color: Color(0xFF2F3FD8), name: 'Indigo'),
     (preset: LexAccentPreset.teal, color: Color(0xFF0B7A6D), name: 'Teal'),
     (

@@ -8,12 +8,33 @@ import 'package:lex_copilot/ai/pipelines/draft_pipeline.dart';
 import 'package:lex_copilot/core/errors/failure.dart';
 import 'package:lex_copilot/core/result.dart';
 import 'package:lex_copilot/core/storage/app_database.dart';
+import 'package:lex_copilot/core/storage/secure_file_pipeline.dart';
 import 'package:lex_copilot/features/library/presentation/library_providers.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'draft_controller.g.dart';
+
+/// Immutable revision snapshot captured during drafting & editing.
+@immutable
+class DraftVersionSnapshot {
+  /// Creates a [DraftVersionSnapshot].
+  const new({
+    required this.versionLabel,
+    required this.createdAt,
+    required this.content,
+  });
+
+  /// Human-readable version tag (`v1 · Generated`, `v2 · Edited`).
+  final String versionLabel;
+
+  /// Timestamp when snapshot was recorded.
+  final DateTime createdAt;
+
+  /// Full draft body at that revision.
+  final String content;
+}
 
 /// Immutable UI state for [DraftController].
 @immutable
@@ -26,6 +47,7 @@ class DraftState {
     this.result,
     this.editedContent = '',
     this.savedDraftId,
+    this.versions = const [],
     this.errorMessage,
   });
 
@@ -47,6 +69,9 @@ class DraftState {
   /// Identifier once saved into [SavedDrafts].
   final String? savedDraftId;
 
+  /// Revision history snapshots captured in chronological order.
+  final List<DraftVersionSnapshot> versions;
+
   /// Recoverable error message.
   final String? errorMessage;
 
@@ -60,6 +85,7 @@ class DraftState {
     String? editedContent,
     String? savedDraftId,
     bool clearSavedId = false,
+    List<DraftVersionSnapshot>? versions,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -70,6 +96,7 @@ class DraftState {
       result: clearResult ? null : (result ?? this.result),
       editedContent: editedContent ?? this.editedContent,
       savedDraftId: clearSavedId ? null : (savedDraftId ?? this.savedDraftId),
+      versions: versions ?? this.versions,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
@@ -151,10 +178,19 @@ class DraftController extends _$DraftController {
         );
         return null;
       case Success(:final value):
+        final nextVersions = List<DraftVersionSnapshot>.from(state.versions)
+          ..add(
+            DraftVersionSnapshot(
+              versionLabel: 'v${state.versions.length + 1} · Generated',
+              createdAt: DateTime.now(),
+              content: value.content,
+            ),
+          );
         state = state.copyWith(
           isGenerating: false,
           result: value,
           editedContent: value.content,
+          versions: nextVersions,
           clearError: true,
         );
         return value;
@@ -244,5 +280,38 @@ class DraftController extends _$DraftController {
         ),
       );
     return doc.save();
+  }
+
+  /// Captures a manual revision snapshot inside [DraftState.versions].
+  void saveVersionSnapshot({String label = 'Edited revision'}) {
+    final text = state.editedContent.trim();
+    if (text.isEmpty) return;
+    final next = List<DraftVersionSnapshot>.from(state.versions)
+      ..add(
+        DraftVersionSnapshot(
+          versionLabel: 'v${state.versions.length + 1} · $label',
+          createdAt: DateTime.now(),
+          content: text,
+        ),
+      );
+    state = state.copyWith(versions: next);
+  }
+
+  /// Restores an earlier draft revision by index cleanly.
+  void restoreVersion(int index) {
+    if (index < 0 || index >= state.versions.length) return;
+    updateEditedContent(state.versions[index].content);
+  }
+
+  /// Generates a Word OOXML `.docx` archive of the current draft.
+  Uint8List buildDocxBytes() {
+    final rawBody = state.editedContent.trim();
+    final combined = rawBody.toLowerCase().contains('lawyer review notice')
+        ? rawBody
+        : '$rawBody\n\n---\n${DraftPipeline.lawyerReviewNotice}';
+    return SecureFilePipeline.buildDocxBytes(
+      title: '${state.template.label} - Lex Draft',
+      bodyText: combined,
+    );
   }
 }

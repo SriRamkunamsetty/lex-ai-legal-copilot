@@ -1,226 +1,131 @@
 from __future__ import annotations
 
-import json
 import logging
-import time
-from typing import Any, AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from app.auth import SlidingWindowRateLimiter, issue_device_token, require_device_auth
-from app.config import Settings, get_settings
-from app.corpus_store import CorpusStore
-from app.gemma_client import GemmaBackend, GoogleAiStudioGemmaClient
-from app.schemas import (
-    ChatRequest,
-    ContractReviewRequest,
-    DeviceTokenRequest,
-    DeviceTokenResponse,
-    DocumentAnalyzeRequest,
-    DraftRequest,
-    IncidentRequest,
-    SectionResponse,
+from app.ai.providers import (
+    AIProvider,
+    GoogleGeminiProvider,
+    LegacyGemmaAdapter,
+    ProviderRegistry,
 )
+from app.api.v1 import admin_review, auth, chat, corpus, workflows, workspaces
+from app.authentication.device_auth import SlidingWindowRateLimiter
+from app.core.config import Settings, get_settings
+from app.core.middleware import PrivacyAuditLoggingMiddleware, SecurityHeadersMiddleware
+from app.corpus_store import CorpusStore
+from app.database.session import create_engine_and_sessionmaker, init_database_schema
+from app.legal.corpus_service import LegalCorpusService
 
-logger = logging.getLogger("lex.proxy")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 
 def create_app(
     *,
     settings: Settings | None = None,
-    gemma_client: GemmaBackend | None = None,
+    gemma_client: Any | None = None,
+    ai_provider: AIProvider | None = None,
     corpus_store: CorpusStore | None = None,
+    session_factory: async_sessionmaker[AsyncSession] | None = None,
+    enable_db: bool = True,
 ) -> FastAPI:
     cfg = settings or get_settings()
-    app = FastAPI(title=cfg.app_name, version="1.0.0")
-    app.state.settings = cfg
-    app.state.rate_limiter = SlidingWindowRateLimiter(cfg.rate_limit_per_minute)
-    app.state.gemma = gemma_client or GoogleAiStudioGemmaClient(cfg)
-    app.state.corpus = corpus_store or CorpusStore.from_file(cfg.corpus_path)
 
+    engine: AsyncEngine | None = None
+    active_factory = session_factory
+    if active_factory is None and enable_db:
+        engine, active_factory = create_engine_and_sessionmaker(
+            cfg.effective_database_url
+        )
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI):
+        if engine is not None:
+            await init_database_schema(engine)
+        elif active_factory is not None:
+            # Test overrides may pass an already-configured session_factory.
+            pass
+        try:
+            yield
+        finally:
+            if engine is not None:
+                await engine.dispose()
+
+    app = FastAPI(
+        title=cfg.app_name,
+        version=cfg.app_version,
+        lifespan=lifespan,
+    )
+
+    if ai_provider is not None:
+        primary_provider = ai_provider
+    elif gemma_client is not None:
+        primary_provider = LegacyGemmaAdapter(gemma_client, model=cfg.gemma_model)
+    else:
+        primary_provider = GoogleGeminiProvider(cfg)
+
+    registry = ProviderRegistry(primary_provider)
+    raw_corpus = corpus_store or CorpusStore.from_file(cfg.corpus_path)
+    corpus_service = LegalCorpusService(
+        corpus_store=raw_corpus,
+        packs_dir=cfg.packs_dir if corpus_store is None else None,
+        session_factory=active_factory,
+    )
+
+    app.state.settings = cfg
+    app.state.session_factory = active_factory
+    app.state.providers = registry
+    app.state.gemma = gemma_client or primary_provider
+    app.state.corpus = raw_corpus
+    app.state.corpus_service = corpus_service
+    app.state.rate_limiter = SlidingWindowRateLimiter(
+        cfg.rate_limit_per_minute,
+        session_factory=active_factory,
+    )
+
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(PrivacyAuditLoggingMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cfg.cors_origins,
         allow_methods=["GET", "POST"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "X-Lex-Admin-Key", "X-Lex-Reviewer-Id"],
     )
-
-    @app.middleware("http")
-    async def log_without_content(request: Request, call_next: Any) -> Any:
-        start = time.perf_counter()
-        response = await call_next(request)
-        elapsed_ms = (time.perf_counter() - start) * 1000
-        device_hash = getattr(request.state, "device_hash", "anon")
-        # Never log request/response bodies or PII.
-        logger.info(
-            "method=%s path=%s status=%s latency_ms=%.1f device=%s",
-            request.method,
-            request.url.path,
-            response.status_code,
-            elapsed_ms,
-            device_hash,
-        )
-        return response
-
-    def _get_gemma(request: Request) -> GemmaBackend:
-        return request.app.state.gemma
-
-    def _get_corpus(request: Request) -> CorpusStore:
-        return request.app.state.corpus
 
     @app.get("/health")
     async def health(request: Request) -> dict[str, Any]:
-        corpus = _get_corpus(request)
+        service: LegalCorpusService = request.app.state.corpus_service
+        provider_health = await request.app.state.providers.health_summary()
         return {
             "status": "ok",
+            "version": cfg.app_version,
             "model": cfg.gemma_model,
-            "corpus_sections": len(corpus.sections),
+            "providers": [
+                {
+                    "name": h.provider,
+                    "model": h.model,
+                    "available": h.available,
+                    "reason": h.reason,
+                }
+                for h in provider_health
+            ],
+            "database": "postgres" if cfg.is_postgres else "sqlite",
+            "corpus_sections": service.total_sections,
         }
 
-    @app.post("/v1/auth/device-token", response_model=DeviceTokenResponse)
-    async def create_device_token(
-        payload: DeviceTokenRequest,
-        active_settings: Settings = Depends(get_settings),
-    ) -> DeviceTokenResponse:
-        token, expires_at = issue_device_token(payload.device_id, active_settings)
-        return DeviceTokenResponse(token=token, expires_at=expires_at)
-
-    @app.post("/v1/chat")
-    async def chat_sse(
-        payload: ChatRequest,
-        request: Request,
-        _: str = Depends(require_device_auth),
-    ) -> StreamingResponse:
-        gemma = _get_gemma(request)
-
-        async def event_stream() -> AsyncIterator[str]:
-            try:
-                async for delta in gemma.stream_chat(
-                    [m.model_dump() for m in payload.messages],
-                    system_instruction=payload.system_instruction,
-                    temperature=payload.temperature,
-                    max_output_tokens=payload.max_output_tokens,
-                ):
-                    yield f"data: {json.dumps({'delta': delta})}\n\n"
-            except Exception as exc:
-                yield f"data: {json.dumps({'error': str(exc)})}\n\n"
-            yield "data: [DONE]\n\n"
-
-        return StreamingResponse(event_stream(), media_type="text/event-stream")
-
-    @app.post("/v1/incident/sections")
-    async def incident_sections(
-        payload: IncidentRequest,
-        request: Request,
-        _: str = Depends(require_device_auth),
-    ) -> dict[str, Any]:
-        corpus = _get_corpus(request)
-        gemma = _get_gemma(request)
-        candidates = corpus.search(
-            f"{payload.incident_type or ''} {payload.description}",
-            limit=6,
-        )
-        context_lines = [
-            f"{s['act_code']} {s['section_number']} - {s['title']}: {s['text'][:400]}"
-            for s in candidates
-        ]
-        prompt = (
-            "Select applicable provisions ONLY from these candidates and return JSON:\n"
-            + "\n".join(context_lines)
-            + f"\n\nIncident: {payload.description}"
-        )
-        raw = await gemma.complete_json(prompt, temperature=0.1)
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            parsed = {"summary": raw, "cited_sections": []}
-        parsed["candidate_sections"] = [
-            {"act_code": s["act_code"], "section_number": s["section_number"], "title": s["title"]}
-            for s in candidates
-        ]
-        return parsed
-
-    @app.post("/v1/contract/review")
-    async def contract_review(
-        payload: ContractReviewRequest,
-        request: Request,
-        _: str = Depends(require_device_auth),
-    ) -> dict[str, Any]:
-        gemma = _get_gemma(request)
-        prompt = (
-            "Review this Indian contract and return JSON with risk_score (0-100), "
-            "risk_label, and clauses list:\n\n" + payload.contract_text
-        )
-        raw = await gemma.complete_json(prompt, temperature=0.1)
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Model returned malformed contract review JSON",
-            ) from exc
-
-    @app.post("/v1/draft")
-    async def generate_draft(
-        payload: DraftRequest,
-        request: Request,
-        _: str = Depends(require_device_auth),
-    ) -> dict[str, Any]:
-        gemma = _get_gemma(request)
-        prompt = (
-            f"Draft a {payload.template_type} for India using fields {json.dumps(payload.fields)}. "
-            "Use [placeholder] for missing facts and include a lawyer-review notice. "
-            "Return JSON with title, body, missing_placeholders, mandatory_clauses_ok."
-        )
-        raw = await gemma.complete_json(prompt, temperature=0.15)
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Model returned malformed draft JSON",
-            ) from exc
-
-    @app.post("/v1/document/analyze")
-    async def analyze_document(
-        payload: DocumentAnalyzeRequest,
-        request: Request,
-        _: str = Depends(require_device_auth),
-    ) -> dict[str, Any]:
-        gemma = _get_gemma(request)
-        prompt = f"{payload.prompt}\n\nOCR text:\n{payload.ocr_text}"
-        raw = await gemma.complete_json(
-            prompt,
-            images_base64=payload.images_base64,
-            temperature=0.1,
-        )
-        try:
-            data = json.loads(raw)
-            if isinstance(data, dict):
-                return data
-        except json.JSONDecodeError:
-            pass
-        return {"summary": raw}
-
-    @app.get("/v1/sections/{act}/{number}", response_model=SectionResponse)
-    async def get_section(
-        act: str,
-        number: str,
-        request: Request,
-    ) -> SectionResponse:
-        corpus = _get_corpus(request)
-        section = corpus.get_section(act, number)
-        if section is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"{act.upper()} Section {number} not found",
-            )
-        return SectionResponse(**section)
+    app.include_router(auth.router)
+    app.include_router(chat.router)
+    app.include_router(workflows.router)
+    app.include_router(corpus.router)
+    app.include_router(admin_review.router)
+    app.include_router(workspaces.router)
 
     return app
 
 
-app = create_app()
+app = create_app(enable_db=False)

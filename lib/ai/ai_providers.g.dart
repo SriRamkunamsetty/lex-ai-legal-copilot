@@ -54,17 +54,69 @@ final class PromptRegistryProvider
 
 String _$promptRegistryHash() => r'e5e7261c7a36cbf0ffd5583d5c77ab44e29a84a7';
 
-/// Provides the [LexHttpClient] configured for the active build flavor.
+/// Provides the device bearer-token manager calling `/v1/auth/device-token`.
+
+@ProviderFor(deviceAuthService)
+final deviceAuthServiceProvider = DeviceAuthServiceProvider._();
+
+/// Provides the device bearer-token manager calling `/v1/auth/device-token`.
+
+final class DeviceAuthServiceProvider
+    extends
+        $FunctionalProvider<
+          DeviceAuthService,
+          DeviceAuthService,
+          DeviceAuthService
+        >
+    with $Provider<DeviceAuthService> {
+  /// Provides the device bearer-token manager calling `/v1/auth/device-token`.
+  DeviceAuthServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'deviceAuthServiceProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$deviceAuthServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<DeviceAuthService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  DeviceAuthService create(Ref ref) {
+    return deviceAuthService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DeviceAuthService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DeviceAuthService>(value),
+    );
+  }
+}
+
+String _$deviceAuthServiceHash() => r'ee3344cfe713f16151a90c668f65ae72f6b37706';
+
+/// Provides the [LexHttpClient] configured with device auth & cert pinning.
 
 @ProviderFor(lexHttpClient)
 final lexHttpClientProvider = LexHttpClientProvider._();
 
-/// Provides the [LexHttpClient] configured for the active build flavor.
+/// Provides the [LexHttpClient] configured with device auth & cert pinning.
 
 final class LexHttpClientProvider
     extends $FunctionalProvider<LexHttpClient, LexHttpClient, LexHttpClient>
     with $Provider<LexHttpClient> {
-  /// Provides the [LexHttpClient] configured for the active build flavor.
+  /// Provides the [LexHttpClient] configured with device auth & cert pinning.
   LexHttpClientProvider._()
     : super(
         from: null,
@@ -98,7 +150,60 @@ final class LexHttpClientProvider
   }
 }
 
-String _$lexHttpClientHash() => r'f074ed5725f7cd726121fe0a16d77fcb73239bbb';
+String _$lexHttpClientHash() => r'd709eda717529623b4294d10a1956a8eb01c2550';
+
+/// Evaluates device RAM, storage, and thermal limits for Gemma 4 tiers.
+
+@ProviderFor(deviceCapabilityService)
+final deviceCapabilityServiceProvider = DeviceCapabilityServiceProvider._();
+
+/// Evaluates device RAM, storage, and thermal limits for Gemma 4 tiers.
+
+final class DeviceCapabilityServiceProvider
+    extends
+        $FunctionalProvider<
+          DeviceCapabilityService,
+          DeviceCapabilityService,
+          DeviceCapabilityService
+        >
+    with $Provider<DeviceCapabilityService> {
+  /// Evaluates device RAM, storage, and thermal limits for Gemma 4 tiers.
+  DeviceCapabilityServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'deviceCapabilityServiceProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$deviceCapabilityServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<DeviceCapabilityService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  DeviceCapabilityService create(Ref ref) {
+    return deviceCapabilityService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DeviceCapabilityService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DeviceCapabilityService>(value),
+    );
+  }
+}
+
+String _$deviceCapabilityServiceHash() =>
+    r'aa8212b088828fb093b30eb2f9d793626ca3bb15';
 
 /// Provides the on-device Gemma 4 service.
 
@@ -151,7 +256,7 @@ final class OnDeviceGemmaServiceProvider
 }
 
 String _$onDeviceGemmaServiceHash() =>
-    r'651a36bf40ef284c566d0c2f6bb8008a42bcaf74';
+    r'b714dcf6ba5d2f360f8b9b6269825240bdbdf773';
 
 /// Provides the cloud Gemma 4 proxy service.
 
@@ -205,17 +310,20 @@ final class CloudGemmaServiceProvider
 
 String _$cloudGemmaServiceHash() => r'18e054a49b9e40b5491364e428cfddf1685b8988';
 
-/// Provides the [ModelRouter] coordinating on-device and cloud inference.
+/// Provides the [ModelRouter] coordinating on-device and cloud inference with
+/// live connectivity checks and explicit cloud consent rules.
 
 @ProviderFor(modelRouter)
 final modelRouterProvider = ModelRouterProvider._();
 
-/// Provides the [ModelRouter] coordinating on-device and cloud inference.
+/// Provides the [ModelRouter] coordinating on-device and cloud inference with
+/// live connectivity checks and explicit cloud consent rules.
 
 final class ModelRouterProvider
     extends $FunctionalProvider<ModelRouter, ModelRouter, ModelRouter>
     with $Provider<ModelRouter> {
-  /// Provides the [ModelRouter] coordinating on-device and cloud inference.
+  /// Provides the [ModelRouter] coordinating on-device and cloud inference with
+  /// live connectivity checks and explicit cloud consent rules.
   ModelRouterProvider._()
     : super(
         from: null,
@@ -249,7 +357,7 @@ final class ModelRouterProvider
   }
 }
 
-String _$modelRouterHash() => r'7e13d3841dc8641b0ef8def810967dd24e70bf5e';
+String _$modelRouterHash() => r'6e1586ab241f3d49b6e825c0f72d5690a1fec812';
 
 /// Provides the document scanner / camera / gallery capture service.
 
@@ -401,6 +509,55 @@ final class DocumentPipelineProvider
 
 String _$documentPipelineHash() => r'a984b4981a2c30723785f82e9e848529efdab18f';
 
+/// Provides the offline [LocalRagEngine] combining FTS5 BM25, semantic vectors
+/// via RRF, chunking, and 1-hop Knowledge Graph expansion.
+
+@ProviderFor(localRagEngine)
+final localRagEngineProvider = LocalRagEngineProvider._();
+
+/// Provides the offline [LocalRagEngine] combining FTS5 BM25, semantic vectors
+/// via RRF, chunking, and 1-hop Knowledge Graph expansion.
+
+final class LocalRagEngineProvider
+    extends $FunctionalProvider<LocalRagEngine, LocalRagEngine, LocalRagEngine>
+    with $Provider<LocalRagEngine> {
+  /// Provides the offline [LocalRagEngine] combining FTS5 BM25, semantic vectors
+  /// via RRF, chunking, and 1-hop Knowledge Graph expansion.
+  LocalRagEngineProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'localRagEngineProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$localRagEngineHash();
+
+  @$internal
+  @override
+  $ProviderElement<LocalRagEngine> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  LocalRagEngine create(Ref ref) {
+    return localRagEngine(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(LocalRagEngine value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<LocalRagEngine>(value),
+    );
+  }
+}
+
+String _$localRagEngineHash() => r'9bb85975f3f74481c42d9d3d33992845e9a6065e';
+
 /// Provides the RAG + citation-verifier [ResearchPipeline].
 
 @ProviderFor(researchPipeline)
@@ -450,7 +607,7 @@ final class ResearchPipelineProvider
   }
 }
 
-String _$researchPipelineHash() => r'f5e68e6400267bf1a94b2ad055a1fddfcda20a2a';
+String _$researchPipelineHash() => r'97e6a170e2ac460bc1399f2af145a7f30bb6969d';
 
 /// Provides the grounded [IncidentPipeline].
 

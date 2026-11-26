@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:flutter_edge_ai_litertlm/flutter_edge_ai_litertlm.dart';
 import 'package:lex_copilot/ai/llm_service.dart';
+import 'package:lex_copilot/ai/on_device/device_capability_service.dart';
 import 'package:lex_copilot/ai/schemas/schema_validator.dart';
 import 'package:lex_copilot/core/errors/failure.dart';
 import 'package:lex_copilot/core/result.dart';
@@ -12,18 +13,21 @@ import 'package:lex_copilot/core/result.dart';
 /// Preferred on-device Gemma 4 model tier.
 enum Gemma4Tier {
   /// Gemma 4 Effective 2B (~2.59 GB, fits lower-RAM devices).
-  e2b('gemma-4-e2b-it', 'Gemma 4 E2B'),
+  e2b('gemma-4-e2b-it', 'Gemma 4 E2B', 2650),
 
   /// Gemma 4 Effective 4B (higher reasoning capacity, falls back to E2B on OOM).
-  e4b('gemma-4-e4b-it', 'Gemma 4 E4B');
+  e4b('gemma-4-e4b-it', 'Gemma 4 E4B', 4900);
 
-  new(this.catalogId, this.displayName);
+  new(this.catalogId, this.displayName, this.approxDownloadMb);
 
   /// Catalog model identifier in `flutter_edge_ai_litertlm`.
   final String catalogId;
 
   /// Human-readable name shown in UI badges.
   final String displayName;
+
+  /// Approximate download size in MiB.
+  final int approxDownloadMb;
 }
 
 /// Lifecycle state for the on-device Gemma 4 runtime.
@@ -33,6 +37,9 @@ enum OnDeviceModelStatus {
 
   /// Model download + SHA-256 verification is in progress.
   downloading,
+
+  /// Model download paused by user; resumable.
+  paused,
 
   /// Downloaded and ready for offline inference.
   ready,
@@ -44,7 +51,32 @@ enum OnDeviceModelStatus {
   error,
 }
 
-/// Snapshot of on-device Gemma 4 availability and download progress.
+/// Result returned by [OnDeviceGemmaService.runLatencyBenchmark].
+@immutable
+class OnDeviceBenchmarkResult {
+  /// Creates an [OnDeviceBenchmarkResult].
+  const new({
+    required this.tier,
+    required this.latencyMs,
+    required this.backendLabel,
+    required this.outputChars,
+  });
+
+  /// Active tier tested.
+  final Gemma4Tier tier;
+
+  /// End-to-end warm inference latency in milliseconds.
+  final int latencyMs;
+
+  /// Reported execution backend (`gpu`, `cpu`, etc.).
+  final String backendLabel;
+
+  /// Output character count generated during self-test.
+  final int outputChars;
+}
+
+/// Snapshot of on-device Gemma 4 availability, hardware compatibility, and
+/// download progress.
 @immutable
 class OnDeviceModelState {
   /// Creates an [OnDeviceModelState].
@@ -54,6 +86,10 @@ class OnDeviceModelState {
     this.progress = 0,
     this.activeBackendLabel,
     this.errorMessage,
+    this.installedVersion,
+    this.updateAvailable = false,
+    this.capabilityReport,
+    this.lastBenchmark,
   });
 
   /// Current lifecycle state.
@@ -71,6 +107,18 @@ class OnDeviceModelState {
   /// Non-PII error message when [status] is [OnDeviceModelStatus.error].
   final String? errorMessage;
 
+  /// Version identifier of the verified installed weights.
+  final String? installedVersion;
+
+  /// Whether a newer catalog manifest version is available.
+  final bool updateAvailable;
+
+  /// Latest evaluated device RAM, storage, and thermal compatibility report.
+  final DeviceCapabilityReport? capabilityReport;
+
+  /// Result of most recent offline latency self-test.
+  final OnDeviceBenchmarkResult? lastBenchmark;
+
   /// Returns a modified copy.
   OnDeviceModelState copyWith({
     OnDeviceModelStatus? status,
@@ -78,12 +126,21 @@ class OnDeviceModelState {
     int? progress,
     String? activeBackendLabel,
     String? errorMessage,
+    bool clearError = false,
+    String? installedVersion,
+    bool? updateAvailable,
+    DeviceCapabilityReport? capabilityReport,
+    OnDeviceBenchmarkResult? lastBenchmark,
   }) => OnDeviceModelState(
     status: status ?? this.status,
     tier: tier ?? this.tier,
     progress: progress ?? this.progress,
     activeBackendLabel: activeBackendLabel ?? this.activeBackendLabel,
-    errorMessage: errorMessage ?? this.errorMessage,
+    errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+    installedVersion: installedVersion ?? this.installedVersion,
+    updateAvailable: updateAvailable ?? this.updateAvailable,
+    capabilityReport: capabilityReport ?? this.capabilityReport,
+    lastBenchmark: lastBenchmark ?? this.lastBenchmark,
   );
 }
 
@@ -94,10 +151,10 @@ abstract interface class EdgeAiRuntimeAdapter {
   /// Initializes the LiteRT-LM engine once.
   Future<void> initialize();
 
-  /// Returns `true` if a model matching [catalogId] is already installed.
+  /// Returns `true` if the exact model matching [catalogId] is installed.
   Future<bool> isInstalled(String catalogId);
 
-  /// Downloads, verifies SHA-256 checksum, and activates [tier].
+  /// Downloads, verifies checksum, and activates [tier].
   Future<void> installTier(
     Gemma4Tier tier, {
     required void Function(int progress) onProgress,
@@ -115,11 +172,20 @@ abstract interface class EdgeAiRuntimeAdapter {
   });
 }
 
+/// Optional extension implemented by runtimes supporting active download
+/// cancellation/pause without breaking lightweight test fakes.
+abstract interface class CancellableEdgeAiRuntimeAdapter
+    implements EdgeAiRuntimeAdapter {
+  /// Requests cancellation of the active model download.
+  void cancelActiveInstall();
+}
+
 /// Production [EdgeAiRuntimeAdapter] backed by `flutter_edge_ai` and
 /// `flutter_edge_ai_litertlm` (`LiteRtLmEngine` + `LiteRtLmModels.gemma4E2bIt` /
 /// `gemma4E4bIt`).
-class FlutterEdgeAiRuntimeAdapter implements EdgeAiRuntimeAdapter {
+class FlutterEdgeAiRuntimeAdapter implements CancellableEdgeAiRuntimeAdapter {
   bool _initialized = false;
+  CancelToken? _activeCancelToken;
 
   @override
   Future<void> initialize() async {
@@ -147,7 +213,23 @@ class FlutterEdgeAiRuntimeAdapter implements EdgeAiRuntimeAdapter {
     await initialize();
     if (!FlutterEdgeAi.hasActiveModel()) return false;
     final installed = await FlutterEdgeAi.listInstalledModels();
-    return installed.any((id) => id.toLowerCase().contains('gemma-4'));
+    final targetTier = Gemma4Tier.values
+        .where((t) => t.catalogId.toLowerCase() == catalogId.toLowerCase())
+        .firstOrNull;
+    if (targetTier == null) {
+      return installed.any((id) => id.toLowerCase() == catalogId.toLowerCase());
+    }
+    final variant = _pickVariant(targetTier);
+    final filenames = variant.files
+        .map((f) => f.installFilename.toLowerCase())
+        .toSet();
+    final tierMarker = targetTier == Gemma4Tier.e4b ? 'e4b' : 'e2b';
+    return installed.any((entry) {
+      final lower = entry.toLowerCase();
+      return lower == catalogId.toLowerCase() ||
+          filenames.any(lower.contains) ||
+          (lower.contains('gemma') && lower.contains(tierMarker));
+    });
   }
 
   @override
@@ -158,11 +240,24 @@ class FlutterEdgeAiRuntimeAdapter implements EdgeAiRuntimeAdapter {
   }) async {
     await initialize();
     final variant = _pickVariant(tier);
-    await FlutterEdgeAi.installModelFromCatalog(
-      variant,
-      token: huggingFaceToken,
-      foreground: true,
-    ).withProgress(onProgress).install();
+    final cancelToken = CancelToken();
+    _activeCancelToken = cancelToken;
+    try {
+      await FlutterEdgeAi.installModelFromCatalog(
+        variant,
+        token: huggingFaceToken,
+        foreground: true,
+      ).withCancelToken(cancelToken).withProgress(onProgress).install();
+    } finally {
+      if (identical(_activeCancelToken, cancelToken)) {
+        _activeCancelToken = null;
+      }
+    }
+  }
+
+  @override
+  void cancelActiveInstall() {
+    _activeCancelToken?.cancel('Paused by user');
   }
 
   @override
@@ -214,13 +309,18 @@ class FlutterEdgeAiRuntimeAdapter implements EdgeAiRuntimeAdapter {
 }
 
 /// On-device multimodal Gemma 4 implementation of [LlmService] powered by
-/// LiteRT-LM (`flutter_edge_ai_litertlm`).
+/// LiteRT-LM (`flutter_edge_ai_litertlm`) and [DeviceCapabilityService].
 class OnDeviceGemmaService implements LlmService {
   /// Creates an [OnDeviceGemmaService].
   new({
     EdgeAiRuntimeAdapter? runtime,
+    DeviceCapabilityService? capabilityService,
     Gemma4Tier preferredTier = Gemma4Tier.e2b,
+    String currentManifestVersion = '2026.05.01',
   }) : _runtime = runtime ?? FlutterEdgeAiRuntimeAdapter(),
+       _capabilityService =
+           capabilityService ?? const DeviceCapabilityService(),
+       _manifestVersion = currentManifestVersion,
        _state = ValueNotifier(
          OnDeviceModelState(
            status: OnDeviceModelStatus.notInstalled,
@@ -229,9 +329,13 @@ class OnDeviceGemmaService implements LlmService {
        );
 
   final EdgeAiRuntimeAdapter _runtime;
+  final DeviceCapabilityService _capabilityService;
+  final String _manifestVersion;
   final ValueNotifier<OnDeviceModelState> _state;
 
-  /// Observable lifecycle & download progress state for UI surfaces.
+  bool _pauseRequested = false;
+
+  /// Observable lifecycle, hardware report, and download progress state.
   ValueListenable<OnDeviceModelState> get stateListenable => _state;
 
   /// Current lifecycle snapshot.
@@ -249,14 +353,30 @@ class OnDeviceGemmaService implements LlmService {
   @override
   bool get isOnDevice => true;
 
-  /// Checks whether a Gemma 4 `.litertlm` model is already installed locally.
+  /// Evaluates RAM, free storage, and thermal status cleanly.
+  Future<DeviceCapabilityReport> evaluateCapability() async {
+    final report = await _capabilityService.evaluate();
+    _state.value = _state.value.copyWith(capabilityReport: report);
+    return report;
+  }
+
+  /// Selects desired [tier] and refreshes availability without wiping other files.
+  Future<Result<bool>> selectTier(Gemma4Tier tier) {
+    _state.value = _state.value.copyWith(tier: tier, clearError: true);
+    return refreshAvailability();
+  }
+
+  /// Checks whether the currently selected Gemma 4 tier is installed locally.
   Future<Result<bool>> refreshAvailability() => Result.guard(
     () async {
+      final report = await _capabilityService.evaluate();
       final ready = await _runtime.isInstalled(_state.value.tier.catalogId);
       _state.value = _state.value.copyWith(
         status: ready
             ? OnDeviceModelStatus.ready
             : OnDeviceModelStatus.notInstalled,
+        capabilityReport: report,
+        installedVersion: ready ? _manifestVersion : null,
       );
       return ready;
     },
@@ -264,13 +384,60 @@ class OnDeviceGemmaService implements LlmService {
         AiFailure('Unable to check on-device Gemma 4 status.', cause: error),
   );
 
-  /// Downloads and checksum-verifies Gemma 4 (`E4B` with low-memory fallback to
-  /// `E2B`) while updating [stateListenable].
+  /// Compares installed weights version against [latestCatalogVersion].
+  bool checkForUpdate(String latestCatalogVersion) {
+    final installed = _state.value.installedVersion;
+    final hasUpdate =
+        installed != null && installed.trim() != latestCatalogVersion.trim();
+    _state.value = _state.value.copyWith(updateAvailable: hasUpdate);
+    return hasUpdate;
+  }
+
+  /// Pauses an active download cleanly so the user can resume later.
+  void pauseDownload() {
+    if (_state.value.status != OnDeviceModelStatus.downloading) return;
+    _pauseRequested = true;
+    final rt = _runtime;
+    if (rt is CancellableEdgeAiRuntimeAdapter) {
+      rt.cancelActiveInstall();
+    }
+    _state.value = _state.value.copyWith(status: OnDeviceModelStatus.paused);
+  }
+
+  /// Resumes a paused download from the active tier.
+  Future<Result<void>> resumeDownload({String? huggingFaceToken}) {
+    return downloadModel(huggingFaceToken: huggingFaceToken);
+  }
+
+  /// Downloads and verifies Gemma 4 (`E4B` with hardware-safe fallback to `E2B`)
+  /// while enforcing RAM & free-storage guards.
   Future<Result<void>> downloadModel({String? huggingFaceToken}) async {
+    _pauseRequested = false;
+    final report = await evaluateCapability();
+    if (!report.canInstallE2b) {
+      _state.value = _state.value.copyWith(
+        status: OnDeviceModelStatus.error,
+        errorMessage: report.advisoryReason,
+      );
+      return Err(StorageFailure(report.advisoryReason));
+    }
+
     var tier = _state.value.tier;
+    var downgradedPreFlight = false;
+    if (tier == Gemma4Tier.e4b &&
+        report.totalRamMb > 0 &&
+        !report.canInstallE4b) {
+      tier = Gemma4Tier.e2b;
+      downgradedPreFlight = true;
+    }
+
     _state.value = _state.value.copyWith(
       status: OnDeviceModelStatus.downloading,
-      progress: 0,
+      tier: tier,
+      progress: _state.value.status == OnDeviceModelStatus.paused
+          ? _state.value.progress
+          : 0,
+      clearError: true,
     );
 
     try {
@@ -278,19 +445,36 @@ class OnDeviceGemmaService implements LlmService {
         tier,
         huggingFaceToken: huggingFaceToken,
         onProgress: (p) {
+          if (_pauseRequested) return;
           _state.value = _state.value.copyWith(
             status: OnDeviceModelStatus.downloading,
             progress: p.clamp(0, 100),
           );
         },
       );
+      if (_pauseRequested) {
+        _state.value = _state.value.copyWith(
+          status: OnDeviceModelStatus.paused,
+        );
+        return const Success(null);
+      }
       _state.value = _state.value.copyWith(
-        status: OnDeviceModelStatus.ready,
+        status: downgradedPreFlight
+            ? OnDeviceModelStatus.lowMemoryFallback
+            : OnDeviceModelStatus.ready,
         tier: tier,
         progress: 100,
+        installedVersion: _manifestVersion,
+        updateAvailable: false,
       );
       return const Success(null);
     } on Object catch (error) {
+      if (_pauseRequested) {
+        _state.value = _state.value.copyWith(
+          status: OnDeviceModelStatus.paused,
+        );
+        return const Success(null);
+      }
       // Low-memory / device constraint fallback: retry with smaller E2B tier.
       if (tier == Gemma4Tier.e4b) {
         tier = Gemma4Tier.e2b;
@@ -299,6 +483,7 @@ class OnDeviceGemmaService implements LlmService {
             tier,
             huggingFaceToken: huggingFaceToken,
             onProgress: (p) {
+              if (_pauseRequested) return;
               _state.value = _state.value.copyWith(
                 status: OnDeviceModelStatus.downloading,
                 tier: tier,
@@ -311,6 +496,7 @@ class OnDeviceGemmaService implements LlmService {
             tier: tier,
             progress: 100,
             activeBackendLabel: 'cpu-fallback',
+            installedVersion: _manifestVersion,
           );
           return const Success(null);
         } on Object catch (fallbackError) {
@@ -341,10 +527,44 @@ class OnDeviceGemmaService implements LlmService {
       _state.value = _state.value.copyWith(
         status: OnDeviceModelStatus.notInstalled,
         progress: 0,
+        updateAvailable: false,
+        clearError: true,
       );
     },
     onError: (error, _) =>
         StorageFailure('Failed to remove on-device model.', cause: error),
+  );
+
+  /// Runs a minimal local inference probe to verify active runtime responsiveness
+  /// and measure latency in milliseconds.
+  Future<Result<OnDeviceBenchmarkResult>> runLatencyBenchmark() => Result.guard(
+    () async {
+      final sw = Stopwatch()..start();
+      final out = await chat(
+        const [
+          LlmMessage(
+            role: LlmRole.user,
+            content:
+                'Reply in one short sentence: what does Article 21 protect?',
+          ),
+        ],
+        options: const LlmGenerationOptions(
+          temperature: 0,
+          maxOutputTokens: 48,
+        ),
+      ).join();
+      sw.stop();
+      final result = OnDeviceBenchmarkResult(
+        tier: _state.value.tier,
+        latencyMs: sw.elapsedMilliseconds,
+        backendLabel: _state.value.activeBackendLabel ?? 'gpu',
+        outputChars: out.length,
+      );
+      _state.value = _state.value.copyWith(lastBenchmark: result);
+      return result;
+    },
+    onError: (error, _) =>
+        AiFailure('On-device latency benchmark failed.', cause: error),
   );
 
   @override

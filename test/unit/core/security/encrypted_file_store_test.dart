@@ -44,6 +44,8 @@ void main() {
 
     final encryptedPath = writeRes.valueOrNull!;
     final rawDisk = await File(encryptedPath).readAsBytes();
+    // Should use LEX2 AES-256-GCM envelope.
+    expect(utf8.decode(rawDisk.take(4).toList()), 'LEX2');
     expect(
       utf8.decode(rawDisk, allowMalformed: true),
       isNot(contains('Aadhaar')),
@@ -53,12 +55,26 @@ void main() {
     expect(readRes.isSuccess, isTrue);
     expect(readRes.valueOrNull, equals(plain));
 
-    // Tamper 1 byte -> HMAC check must fail cleanly.
+    // Tamper 1 byte -> AES-256-GCM auth tag check must fail cleanly.
     final tampered = Uint8List.fromList(rawDisk);
-    tampered[25] ^= 0xFF;
+    tampered[20] ^= 0xFF;
     await File(encryptedPath).writeAsBytes(tampered);
     final tamperedRes = await store.readBytes(encryptedPath);
     expect(tamperedRes.isErr, isTrue);
+
+    // Format validation accepts PDF/JPEG magic and rejects unknown binary magic.
+    expect(
+      EncryptedFileStore.validateDocumentBytes(
+        Uint8List.fromList([0x25, 0x50, 0x44, 0x46, 0x2D, 0x31]),
+      ).isSuccess,
+      isTrue,
+    );
+    expect(
+      EncryptedFileStore.validateDocumentBytes(
+        Uint8List.fromList([0x00, 0xDE, 0xAD, 0xBE, 0xEF]),
+      ).isErr,
+      isTrue,
+    );
 
     final wipeRes = await store.wipeAll();
     expect(wipeRes.isSuccess, isTrue);

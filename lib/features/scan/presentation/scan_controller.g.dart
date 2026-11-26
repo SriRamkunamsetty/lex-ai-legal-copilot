@@ -47,7 +47,7 @@ final class ScanControllerProvider
   }
 }
 
-String _$scanControllerHash() => r'8372796bb6e65e02ba52f532cd9b1682a388ddac';
+String _$scanControllerHash() => r'089cebf15618ffb2515c136393003f2a246ef2db';
 
 /// Manages document capture, multi-page OCR + LLM field extraction, and
 /// encrypted persistence in [SavedScans].

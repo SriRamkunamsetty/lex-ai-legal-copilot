@@ -159,6 +159,53 @@ final class CasesStreamProvider
 
 String _$casesStreamHash() => r'a9ec446a4a3fe3450ff12d35d58b908e3ebcfd2b';
 
+/// Streams all upcoming incomplete deadlines across all case matters.
+
+@ProviderFor(upcomingDeadlinesStream)
+final upcomingDeadlinesStreamProvider = UpcomingDeadlinesStreamProvider._();
+
+/// Streams all upcoming incomplete deadlines across all case matters.
+
+final class UpcomingDeadlinesStreamProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<CaseDeadlineRecord>>,
+          List<CaseDeadlineRecord>,
+          Stream<List<CaseDeadlineRecord>>
+        >
+    with
+        $FutureModifier<List<CaseDeadlineRecord>>,
+        $StreamProvider<List<CaseDeadlineRecord>> {
+  /// Streams all upcoming incomplete deadlines across all case matters.
+  UpcomingDeadlinesStreamProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'upcomingDeadlinesStreamProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$upcomingDeadlinesStreamHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<List<CaseDeadlineRecord>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<List<CaseDeadlineRecord>> create(Ref ref) {
+    return upcomingDeadlinesStream(ref);
+  }
+}
+
+String _$upcomingDeadlinesStreamHash() =>
+    r'40c30a11ac2329e755a254a7769c782a83afaee7';
+
 /// Streams deadlines for [caseId].
 
 @ProviderFor(caseDeadlinesStream)

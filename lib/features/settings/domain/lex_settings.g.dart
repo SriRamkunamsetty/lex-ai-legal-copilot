@@ -16,7 +16,7 @@ _LexSettings _$LexSettingsFromJson(Map<String, dynamic> json) => _LexSettings(
       LexThemeMode.system,
   accentPreset:
       $enumDecodeNullable(_$LexAccentPresetEnumMap, json['accentPreset']) ??
-      LexAccentPreset.indigo,
+      LexAccentPreset.navyGold,
   cornerRadius:
       $enumDecodeNullable(_$LexCornerRadiusEnumMap, json['cornerRadius']) ??
       LexCornerRadius.soft,
@@ -110,6 +110,7 @@ const _$LexThemeModeEnumMap = {
 };
 
 const _$LexAccentPresetEnumMap = {
+  LexAccentPreset.navyGold: 'navyGold',
   LexAccentPreset.indigo: 'indigo',
   LexAccentPreset.teal: 'teal',
   LexAccentPreset.terracotta: 'terracotta',

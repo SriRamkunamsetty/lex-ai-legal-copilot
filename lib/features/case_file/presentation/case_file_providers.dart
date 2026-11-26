@@ -24,6 +24,12 @@ Stream<List<CaseFileRecord>> casesStream(Ref ref) {
   return ref.watch(caseFileRepositoryProvider).watchCases();
 }
 
+/// Streams all upcoming incomplete deadlines across all case matters.
+@riverpod
+Stream<List<CaseDeadlineRecord>> upcomingDeadlinesStream(Ref ref) {
+  return ref.watch(caseFileRepositoryProvider).watchUpcomingDeadlines();
+}
+
 /// Streams deadlines for [caseId].
 @riverpod
 Stream<List<CaseDeadlineRecord>> caseDeadlinesStream(Ref ref, String caseId) {

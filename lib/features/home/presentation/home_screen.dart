@@ -1,14 +1,19 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lex_copilot/app/theme/lex_tokens.dart';
 import 'package:lex_copilot/core/widgets/widgets.dart';
+import 'package:lex_copilot/features/case_file/presentation/case_file_providers.dart';
+import 'package:lex_copilot/features/contract_review/presentation/contract_review_controller.dart';
+import 'package:lex_copilot/features/library/presentation/library_providers.dart';
 import 'package:lex_copilot/features/settings/domain/lex_settings.dart';
 import 'package:lex_copilot/features/settings/presentation/settings_controller.dart';
 import 'package:lex_copilot/l10n/app_localizations.dart';
 
-/// Primary Home dashboard matching the prototype ("Your legal desk") and
-/// dynamically honoring enabled/ordered Home widgets from [LexSettings].
+/// Primary Home dashboard ("Your legal desk") driven exclusively by live
+/// encrypted Riverpod streams and enabled/ordered Home widgets from [LexSettings].
 class HomeScreen extends ConsumerWidget {
   /// Creates a [HomeScreen].
   const new({super.key});
@@ -100,7 +105,7 @@ class HomeScreen extends ConsumerWidget {
         SizedBox(height: tokens.space(18)),
         for (final widgetKey in settings.homeWidgetOrder)
           if (settings.enabledHomeWidgets.contains(widgetKey)) ...[
-            _buildHomeWidget(context, tokens, widgetKey),
+            _buildHomeWidget(context, ref, tokens, widgetKey),
             SizedBox(height: tokens.space(14)),
           ],
       ],
@@ -109,6 +114,7 @@ class HomeScreen extends ConsumerWidget {
 
   Widget _buildHomeWidget(
     BuildContext context,
+    WidgetRef ref,
     LexTokens tokens,
     LexHomeWidget widgetKey,
   ) => switch (widgetKey) {
@@ -206,51 +212,177 @@ class HomeScreen extends ConsumerWidget {
           LexChip(label: 'Case file', onTap: () => context.push('/case-file')),
           const SizedBox(width: 8),
           LexChip(
+            label: 'Compliance',
+            onTap: () => context.push('/compliance'),
+          ),
+          const SizedBox(width: 8),
+          LexChip(
             label: 'Legal help',
             onTap: () => context.push('/legal-help'),
           ),
         ],
       ),
     ),
-    LexHomeWidget.deadlines => LexCard(
+    LexHomeWidget.deadlines => _LiveDeadlineCard(tokens: tokens),
+    LexHomeWidget.riskRadar => _LiveRiskRadarCard(tokens: tokens),
+    LexHomeWidget.recent => _LiveRecentList(tokens: tokens),
+  };
+}
+
+class _LiveDeadlineCard extends ConsumerWidget {
+  const new({required this.tokens});
+
+  final LexTokens tokens;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncDeadlines = ref.watch(upcomingDeadlinesStreamProvider);
+    final deadlines = asyncDeadlines.value ?? const [];
+
+    if (deadlines.isEmpty) {
+      return LexCard(
+        onTap: () => context.push('/case-file'),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Deadlines',
+                    style: TextStyle(fontSize: 12, color: tokens.secondaryText),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'No upcoming deadlines · Add in Case File',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: tokens.text,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.event_available_outlined, color: tokens.secondaryText),
+          ],
+        ),
+      );
+    }
+
+    final next = deadlines.first;
+    final daysRemaining = next.dueAt.difference(DateTime.now()).inDays;
+    final badgeText = daysRemaining <= 0
+        ? 'Due today'
+        : '$daysRemaining day${daysRemaining == 1 ? '' : 's'}';
+    final level = daysRemaining <= 2 ? RiskLevel.high : RiskLevel.medium;
+
+    return LexCard(
       onTap: () => context.push('/case-file'),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Upcoming deadline',
-                style: TextStyle(fontSize: 12, color: tokens.secondaryText),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Rent notice reply due in 3 days',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: tokens.text,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Upcoming deadline',
+                  style: TextStyle(fontSize: 12, color: tokens.secondaryText),
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  next.title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: tokens.text,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const RiskPill(level: RiskLevel.medium, label: '3 days'),
+          const SizedBox(width: 8),
+          RiskPill(level: level, label: badgeText),
         ],
       ),
-    ),
-    LexHomeWidget.riskRadar => LexCard(
+    );
+  }
+}
+
+class _LiveRiskRadarCard extends ConsumerWidget {
+  const new({required this.tokens});
+
+  final LexTokens tokens;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final latestAsync = ref.watch(latestContractAnalysisStreamProvider);
+    final latest = latestAsync.value;
+
+    if (latest == null) {
+      return LexCard(
+        onTap: () => context.push('/contract-review'),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: tokens.neutralControlFill,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.radar_outlined, color: tokens.accent),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Risk radar ready',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: tokens.text,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Review a contract to inspect clause-level risk scores',
+                    style: TextStyle(fontSize: 13, color: tokens.secondaryText),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    var detail = 'Clause analysis saved locally';
+    try {
+      final decoded = jsonDecode(latest.summaryJson) as Map<String, dynamic>;
+      final high = (decoded['high_count'] as num?)?.toInt() ?? 0;
+      final med = (decoded['medium_count'] as num?)?.toInt() ?? 0;
+      detail = '$high high-risk, $med medium-risk clause flagged';
+    } on Object {
+      // Fallback safely to default summary subtitle.
+    }
+
+    return LexCard(
       onTap: () => context.push('/contract-review'),
       child: Row(
         children: [
-          const ScoreRing(score: 72, size: 54, strokeWidth: 6),
+          ScoreRing(score: latest.overallScore, size: 54, strokeWidth: 6),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Risk radar · Vendor_Agreement.pdf',
+                  'Risk radar · ${latest.title}',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -259,7 +391,7 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '1 high-risk, 1 medium-risk clause flagged',
+                  detail,
                   style: TextStyle(fontSize: 13, color: tokens.secondaryText),
                 ),
               ],
@@ -267,8 +399,21 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-    ),
-    LexHomeWidget.recent => Column(
+    );
+  }
+}
+
+class _LiveRecentList extends ConsumerWidget {
+  const new({required this.tokens});
+
+  final LexTokens tokens;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final historyAsync = ref.watch(historyStreamProvider(''));
+    final items = (historyAsync.value ?? const []).take(3).toList();
+
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -280,28 +425,36 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
         SizedBox(height: tokens.space(10)),
-        _RecentTile(
-          title: 'Rent_Notice.jpg',
-          subtitle: 'Reply due in 3 days',
-          tag: 'Notice',
-          onTap: () => context.go('/ask'),
-        ),
-        const SizedBox(height: 10),
-        _RecentTile(
-          title: 'Vendor_Agreement.pdf',
-          subtitle: '1 high-risk clause',
-          tag: 'Review',
-          onTap: () => context.push('/contract-review'),
-        ),
-        const SizedBox(height: 10),
-        _RecentTile(
-          title: 'BNS 304 · Snatching',
-          subtitle: 'Saved offline reference',
-          tag: 'Section',
-          onTap: () => context.push('/section/BNS/304'),
-        ),
+        if (items.isEmpty)
+          LexCard(
+            onTap: () => context.go('/library'),
+            child: Text(
+              'No recent activity yet. Your scans, chats, drafts, and statutory lookups will appear here.',
+              style: TextStyle(fontSize: 13, color: tokens.secondaryText),
+            ),
+          )
+        else
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            _RecentTile(
+              title: items[i].title,
+              subtitle: items[i].subtitle,
+              tag: _tagForKind(items[i].kind),
+              onTap: () => context.push(items[i].route),
+            ),
+          ],
       ],
-    ),
+    );
+  }
+
+  static String _tagForKind(String kind) => switch (kind) {
+    'scan' => 'Scan',
+    'chat' => 'Ask',
+    'contract_review' => 'Review',
+    'draft' => 'Draft',
+    'section_view' => 'Section',
+    'incident' => 'Incident',
+    _ => 'Item',
   };
 }
 

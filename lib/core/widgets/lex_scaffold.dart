@@ -57,7 +57,22 @@ class LexScaffold extends StatelessWidget {
                 ),
               ),
             ),
-          SafeArea(bottom: bottomOverlay == null, child: body),
+          SafeArea(
+            bottom: bottomOverlay == null,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 840) {
+                  return body;
+                }
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 920),
+                    child: body,
+                  ),
+                );
+              },
+            ),
+          ),
           if (bottomOverlay != null)
             Positioned(
               left: 16,

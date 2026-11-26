@@ -1,7 +1,21 @@
 import 'package:flutter_edge_ai/flutter_edge_ai.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lex_copilot/ai/llm_service.dart';
+import 'package:lex_copilot/ai/on_device/device_capability_service.dart';
 import 'package:lex_copilot/ai/on_device/on_device_gemma_service.dart';
+
+class _TestMetricsReader implements DeviceMetricsReader {
+  const new({this.freeMb = 12000});
+
+  final int freeMb;
+
+  @override
+  Future<RawDeviceMetrics> readMetrics() async => RawDeviceMetrics(
+    totalRamMb: 8192,
+    freeStorageMb: freeMb,
+    osLabel: 'test-os',
+  );
+}
 
 class _FakeEdgeAiAdapter implements EdgeAiRuntimeAdapter {
   bool installed = false;
@@ -61,6 +75,9 @@ void main() {
       final adapter = _FakeEdgeAiAdapter()..failE4bInstall = true;
       final service = OnDeviceGemmaService(
         runtime: adapter,
+        capabilityService: const DeviceCapabilityService(
+          metricsReader: _TestMetricsReader(),
+        ),
         preferredTier: Gemma4Tier.e4b,
       );
 
@@ -71,7 +88,33 @@ void main() {
         OnDeviceModelStatus.lowMemoryFallback,
       );
       expect(service.currentState.tier, Gemma4Tier.e2b);
+      expect(service.checkForUpdate('2026.06.01'), isTrue);
     });
+
+    test(
+      'blocks download on insufficient free storage and runs offline benchmark',
+      () async {
+        final adapter = _FakeEdgeAiAdapter();
+        final lowDisk = OnDeviceGemmaService(
+          runtime: adapter,
+          capabilityService: const DeviceCapabilityService(
+            metricsReader: _TestMetricsReader(freeMb: 500),
+          ),
+        );
+        final denied = await lowDisk.downloadModel();
+        expect(denied.isErr, isTrue);
+
+        final healthy = OnDeviceGemmaService(
+          runtime: adapter,
+          capabilityService: const DeviceCapabilityService(
+            metricsReader: _TestMetricsReader(),
+          ),
+        );
+        final bench = await healthy.runLatencyBenchmark();
+        expect(bench.isSuccess, isTrue);
+        expect(bench.valueOrNull!.outputChars, greaterThan(0));
+      },
+    );
 
     test('falls back to CPU when GPU inference fails and retries invalid JSON once', () async {
       final adapter = _FakeEdgeAiAdapter()..failGpuInference = true;

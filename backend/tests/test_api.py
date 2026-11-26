@@ -96,6 +96,7 @@ def _build_client(rate_limit: int = 30) -> TestClient:
         settings=settings,
         gemma_client=FakeGemmaBackend(),
         corpus_store=corpus,
+        enable_db=False,
     )
     return TestClient(app)
 

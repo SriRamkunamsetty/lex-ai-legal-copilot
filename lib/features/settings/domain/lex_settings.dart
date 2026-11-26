@@ -17,7 +17,10 @@ enum LexThemeMode {
 
 /// Curated accent colour presets matching the Appearance Studio.
 enum LexAccentPreset {
-  /// Signature royal indigo (`#2F3FD8` light / `#93A4FF` dark).
+  /// Signature Deep Navy & Restrained Gold on Warm Ivory (`#13294B` light / `#D6AE52` dark).
+  navyGold,
+
+  /// Royal indigo (`#2F3FD8` light / `#93A4FF` dark).
   indigo,
 
   /// Calm legal teal (`#0E9F8E`).
@@ -122,7 +125,7 @@ abstract class LexSettings with _$LexSettings {
     @Default(false) bool onboardingCompleted,
     @Default(LexUserRole.individual) LexUserRole userRole,
     @Default(LexThemeMode.system) LexThemeMode themeMode,
-    @Default(LexAccentPreset.indigo) LexAccentPreset accentPreset,
+    @Default(LexAccentPreset.navyGold) LexAccentPreset accentPreset,
     @Default(LexCornerRadius.soft) LexCornerRadius cornerRadius,
     @Default(0.65) double glassBlurIntensity,
     @Default(LexFontFamily.system) LexFontFamily fontFamily,

@@ -54,6 +54,23 @@ class _DraftScreenState extends ConsumerState<DraftScreen> {
     await Printing.sharePdf(bytes: bytes, filename: 'lex_$label.pdf');
   }
 
+  Future<void> _exportDocx() async {
+    final notifier = ref.read(draftControllerProvider.notifier);
+    final bytes = notifier.buildDocxBytes();
+    final label = ref.read(draftControllerProvider).template.storageKey;
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [
+          XFile.fromData(
+            bytes,
+            mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            name: 'lex_$label.docx',
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _shareText() async {
     final content = ref.read(draftControllerProvider).editedContent.trim();
     if (content.isEmpty) return;
@@ -120,6 +137,11 @@ class _DraftScreenState extends ConsumerState<DraftScreen> {
                   tooltip: 'Export PDF',
                   onPressed: _exportPdf,
                   icon: Icon(Icons.picture_as_pdf_outlined, color: tokens.text),
+                ),
+                IconButton(
+                  tooltip: 'Export DOCX',
+                  onPressed: _exportDocx,
+                  icon: Icon(Icons.description_outlined, color: tokens.text),
                 ),
                 IconButton(
                   tooltip: 'Share draft',
@@ -277,6 +299,24 @@ class _DraftScreenState extends ConsumerState<DraftScreen> {
                       ),
                     ),
                   ),
+                  if (state.versions.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < state.versions.length; i++)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: LexChip(
+                                label: state.versions[i].versionLabel,
+                                onTap: () => controller.restoreVersion(i),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Row(
                     children: [

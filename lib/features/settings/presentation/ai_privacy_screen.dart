@@ -10,6 +10,7 @@ import 'package:lex_copilot/app/theme/lex_tokens.dart';
 import 'package:lex_copilot/core/security/security_providers.dart';
 import 'package:lex_copilot/core/widgets/widgets.dart';
 import 'package:lex_copilot/features/case_file/presentation/case_file_providers.dart';
+import 'package:lex_copilot/features/chat/presentation/chat_controller.dart';
 import 'package:lex_copilot/features/library/presentation/library_providers.dart';
 import 'package:lex_copilot/features/settings/domain/lex_settings.dart';
 import 'package:lex_copilot/features/settings/presentation/settings_controller.dart';
@@ -106,6 +107,7 @@ class AiPrivacyScreen extends ConsumerWidget {
 
     if (confirmed != true) return;
     await ref.read(libraryRepositoryProvider).deleteAllUserData();
+    await ref.read(chatRepositoryProvider).deleteAllChatData();
     await ref.read(caseFileRepositoryProvider).deleteAllCases();
     await ref.read(encryptedFileStoreProvider).wipeAll();
     await ref.read(settingsControllerProvider.notifier).resetAll();
@@ -273,18 +275,48 @@ class AiPrivacyScreen extends ConsumerWidget {
                       OnDeviceModelStatus.notInstalled => 'Not downloaded',
                       OnDeviceModelStatus.downloading =>
                         'Downloading ${modelState.progress}%',
+                      OnDeviceModelStatus.paused =>
+                        'Paused at ${modelState.progress}%',
                       OnDeviceModelStatus.ready =>
                         'Ready (${modelState.tier.displayName})',
                       OnDeviceModelStatus.lowMemoryFallback =>
-                        'E2B CPU Fallback active',
+                        'E2B CPU/Memory Fallback active',
                       OnDeviceModelStatus.error =>
                         'Unavailable (${modelState.errorMessage ?? 'error'})',
                     };
+                    final cap = modelState.capabilityReport;
+                    final bench = modelState.lastBenchmark;
                     return Padding(
                       padding: const EdgeInsets.all(14),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SegmentedControl<Gemma4Tier>(
+                                  selected: modelState.tier,
+                                  onChanged: (tier) {
+                                    if (modelState.status !=
+                                        OnDeviceModelStatus.downloading) {
+                                      unawaited(gemmaService.selectTier(tier));
+                                    }
+                                  },
+                                  segments: const [
+                                    (
+                                      value: Gemma4Tier.e2b,
+                                      label: 'E2B (2.6GB)',
+                                    ),
+                                    (
+                                      value: Gemma4Tier.e4b,
+                                      label: 'E4B (4.9GB)',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
                           Row(
                             children: [
                               Expanded(
@@ -305,19 +337,60 @@ class AiPrivacyScreen extends ConsumerWidget {
                                         color: tokens.secondaryText,
                                       ),
                                     ),
+                                    if (cap != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        cap.advisoryReason,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: tokens.secondaryText,
+                                        ),
+                                      ),
+                                    ],
+                                    if (bench != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Last benchmark: ${bench.latencyMs} ms (${bench.backendLabel})',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: tokens.accent,
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
                               if (modelState.status ==
+                                  OnDeviceModelStatus.downloading)
+                                TextButton(
+                                  onPressed: gemmaService.pauseDownload,
+                                  child: const Text('Pause'),
+                                )
+                              else if (modelState.status ==
+                                  OnDeviceModelStatus.paused)
+                                FilledButton.tonal(
+                                  onPressed: gemmaService.resumeDownload,
+                                  child: const Text('Resume'),
+                                )
+                              else if (modelState.status ==
                                       OnDeviceModelStatus.ready ||
                                   modelState.status ==
                                       OnDeviceModelStatus.lowMemoryFallback)
-                                TextButton(
-                                  onPressed: gemmaService.deleteModel,
-                                  child: const Text('Remove'),
+                                Wrap(
+                                  spacing: 4,
+                                  children: [
+                                    TextButton(
+                                      onPressed:
+                                          gemmaService.runLatencyBenchmark,
+                                      child: const Text('Test'),
+                                    ),
+                                    TextButton(
+                                      onPressed: gemmaService.deleteModel,
+                                      child: const Text('Remove'),
+                                    ),
+                                  ],
                                 )
-                              else if (modelState.status !=
-                                  OnDeviceModelStatus.downloading)
+                              else
                                 FilledButton.tonal(
                                   onPressed: gemmaService.downloadModel,
                                   child: const Text('Download'),
@@ -325,7 +398,9 @@ class AiPrivacyScreen extends ConsumerWidget {
                             ],
                           ),
                           if (modelState.status ==
-                              OnDeviceModelStatus.downloading) ...[
+                                  OnDeviceModelStatus.downloading ||
+                              modelState.status ==
+                                  OnDeviceModelStatus.paused) ...[
                             const SizedBox(height: 8),
                             LinearProgressIndicator(
                               value: modelState.progress / 100.0,
@@ -415,6 +490,26 @@ class AiPrivacyScreen extends ConsumerWidget {
             padding: EdgeInsets.zero,
             child: Column(
               children: [
+                ListTile(
+                  leading: const Icon(Icons.inventory_2_outlined),
+                  title: const Text('Offline Knowledge Packs'),
+                  subtitle: const Text(
+                    'Constitution (May 2026) & Central Acts',
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/customize/knowledge-packs'),
+                ),
+                Divider(height: 1, color: tokens.hairline),
+                ListTile(
+                  leading: const Icon(Icons.cloud_sync_outlined),
+                  title: const Text('E2EE Cloud Sync & Workspaces'),
+                  subtitle: const Text(
+                    'Optional zero-knowledge backup & team RBAC',
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/customize/workspace-sync'),
+                ),
+                Divider(height: 1, color: tokens.hairline),
                 ListTile(
                   leading: const Icon(Icons.privacy_tip_outlined),
                   title: Text(l10n?.privacyNoticeTitle ?? 'Privacy notice'),

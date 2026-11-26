@@ -80,7 +80,9 @@ class LexTokens extends ThemeExtension<LexTokens> {
 
     return LexTokens(
       brightness: Brightness.light,
-      background: const Color(0xFFFAFAF8),
+      background: settings.accentPreset == LexAccentPreset.navyGold
+          ? const Color(0xFFFAF7F0)
+          : const Color(0xFFFAFAF8),
       surface: const Color(0xFFFFFFFF),
       text: const Color(0xFF111113),
       secondaryText: const Color(0xFF66666C),
@@ -197,6 +199,14 @@ class LexTokens extends ThemeExtension<LexTokens> {
     LexAccentPreset preset, {
     required bool isDark,
   }) => switch ((preset, isDark)) {
+    (LexAccentPreset.navyGold, false) => (
+      accent: const Color(0xFF13294B),
+      onAccent: const Color(0xFFFDFBF7),
+    ),
+    (LexAccentPreset.navyGold, true) => (
+      accent: const Color(0xFFD6AE52),
+      onAccent: const Color(0xFF0E1624),
+    ),
     (LexAccentPreset.indigo, false) => (
       accent: const Color(0xFF2F3FD8),
       onAccent: const Color(0xFFFFFFFF),

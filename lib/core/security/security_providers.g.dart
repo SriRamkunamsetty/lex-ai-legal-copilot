@@ -59,6 +59,53 @@ final class SecureKeyManagerProvider
 
 String _$secureKeyManagerHash() => r'9116bb46db6270c0623437ca1f6a327607b5be44';
 
+/// Provides the client-side zero-knowledge E2EE sync key & envelope service.
+
+@ProviderFor(e2eeSyncService)
+final e2eeSyncServiceProvider = E2eeSyncServiceProvider._();
+
+/// Provides the client-side zero-knowledge E2EE sync key & envelope service.
+
+final class E2eeSyncServiceProvider
+    extends
+        $FunctionalProvider<E2eeSyncService, E2eeSyncService, E2eeSyncService>
+    with $Provider<E2eeSyncService> {
+  /// Provides the client-side zero-knowledge E2EE sync key & envelope service.
+  E2eeSyncServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'e2eeSyncServiceProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$e2eeSyncServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<E2eeSyncService> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  E2eeSyncService create(Ref ref) {
+    return e2eeSyncService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(E2eeSyncService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<E2eeSyncService>(value),
+    );
+  }
+}
+
+String _$e2eeSyncServiceHash() => r'f20369917c6228e4f4431226b816c8e33ce24245';
+
 /// Provides the local scan-file encryption store.
 
 @ProviderFor(encryptedFileStore)

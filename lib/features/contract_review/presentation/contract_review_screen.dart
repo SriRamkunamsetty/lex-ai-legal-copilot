@@ -6,6 +6,7 @@ import 'package:lex_copilot/app/theme/lex_tokens.dart';
 import 'package:lex_copilot/core/widgets/widgets.dart';
 import 'package:lex_copilot/features/contract_review/presentation/contract_review_controller.dart';
 import 'package:lex_copilot/features/library/presentation/library_providers.dart';
+import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
 /// Contract review screen: paste text or import from scans, inspect 0-100 risk
@@ -99,7 +100,18 @@ Governed by Indian laws with arbitration seated at Bengaluru.''';
                   style: Theme.of(context).textTheme.headlineLarge,
                 ),
               ),
-              if (state.review != null)
+              if (state.review != null) ...[
+                IconButton(
+                  tooltip: 'Export PDF Risk Report',
+                  onPressed: () async {
+                    final bytes = await controller.buildRiskReportPdfBytes();
+                    await Printing.sharePdf(
+                      bytes: bytes,
+                      filename: 'lex_risk_report.pdf',
+                    );
+                  },
+                  icon: Icon(Icons.picture_as_pdf_outlined, color: tokens.text),
+                ),
                 IconButton(
                   tooltip: 'Share revised contract',
                   onPressed: () => _shareRevisedText(
@@ -108,6 +120,7 @@ Governed by Indian laws with arbitration seated at Bengaluru.''';
                   ),
                   icon: Icon(Icons.ios_share_rounded, color: tokens.text),
                 ),
+              ],
             ],
           ),
           Text(
@@ -283,13 +296,25 @@ class _ClauseFindingCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  clause.clauseTitle,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: tokens.text,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      clause.clauseTitle,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: tokens.text,
+                      ),
+                    ),
+                    Text(
+                      'p.${clause.pageNumber} · ${clause.riskCategory}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: tokens.secondaryText,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               RiskPill(level: clause.riskLevel),

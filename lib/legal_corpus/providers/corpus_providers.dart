@@ -1,6 +1,7 @@
 import 'package:lex_copilot/core/result.dart';
 import 'package:lex_copilot/core/storage/app_database.dart';
 import 'package:lex_copilot/legal_corpus/models/legal_section.dart';
+import 'package:lex_copilot/legal_corpus/packs/knowledge_pack_service.dart';
 import 'package:lex_copilot/legal_corpus/repository/legal_corpus_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -22,10 +23,21 @@ LegalCorpusRepository legalCorpusRepository(Ref ref) {
   return LegalCorpusRepository(ref.watch(appDatabaseProvider));
 }
 
-/// Seeds the offline legal corpus on first access.
+/// Provides the offline [KnowledgePackService] verifying & hydrating
+/// signed Constitution and Central Act Knowledge Packs.
 @Riverpod(keepAlive: true)
-Future<Result<int>> corpusSeed(Ref ref) {
-  return ref.watch(legalCorpusRepositoryProvider).ensureSeeded();
+KnowledgePackService knowledgePackService(Ref ref) {
+  return KnowledgePackService(ref.watch(appDatabaseProvider));
+}
+
+/// Seeds the offline legal corpus & verified Knowledge Packs on first access.
+@Riverpod(keepAlive: true)
+Future<Result<int>> corpusSeed(Ref ref) async {
+  final baseRes = await ref.watch(legalCorpusRepositoryProvider).ensureSeeded();
+  final packRes = await ref
+      .watch(knowledgePackServiceProvider)
+      .ensureBundledPacksInstalled();
+  return baseRes.map((baseCount) => baseCount + (packRes.valueOrNull ?? 0));
 }
 
 /// Fetches a single statutory section by [actCode] and [sectionNumber] after

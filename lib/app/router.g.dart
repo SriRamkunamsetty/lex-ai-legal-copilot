@@ -15,6 +15,7 @@ List<RouteBase> get $appRoutes => [
   $draftRoute,
   $caseFileRoute,
   $legalHelpRoute,
+  $complianceRoute,
   $customizeRoute,
 ];
 
@@ -338,6 +339,33 @@ mixin $LegalHelpRoute on GoRouteData {
   void replace(BuildContext context) => context.replace(location);
 }
 
+RouteBase get $complianceRoute => GoRouteData.$route(
+  path: '/compliance',
+  hasOverriddenOnExit: false,
+  factory: $ComplianceRoute._fromState,
+);
+
+mixin $ComplianceRoute on GoRouteData {
+  static ComplianceRoute _fromState(GoRouterState state) =>
+      const ComplianceRoute();
+
+  @override
+  String get location => GoRouteData.$location('/compliance');
+
+  @override
+  void go(BuildContext context) => context.go(location);
+
+  @override
+  Future<T?> push<T>(BuildContext context) => context.push<T>(location);
+
+  @override
+  void pushReplacement(BuildContext context) =>
+      context.pushReplacement(location);
+
+  @override
+  void replace(BuildContext context) => context.replace(location);
+}
+
 RouteBase get $customizeRoute => GoRouteData.$route(
   path: '/customize',
   hasOverriddenOnExit: false,
@@ -352,6 +380,16 @@ RouteBase get $customizeRoute => GoRouteData.$route(
       path: 'ai-privacy',
       hasOverriddenOnExit: false,
       factory: $AiPrivacyRoute._fromState,
+    ),
+    GoRouteData.$route(
+      path: 'knowledge-packs',
+      hasOverriddenOnExit: false,
+      factory: $KnowledgePacksRoute._fromState,
+    ),
+    GoRouteData.$route(
+      path: 'workspace-sync',
+      hasOverriddenOnExit: false,
+      factory: $WorkspaceSyncRoute._fromState,
     ),
   ],
 );
@@ -404,6 +442,48 @@ mixin $AiPrivacyRoute on GoRouteData {
 
   @override
   String get location => GoRouteData.$location('/customize/ai-privacy');
+
+  @override
+  void go(BuildContext context) => context.go(location);
+
+  @override
+  Future<T?> push<T>(BuildContext context) => context.push<T>(location);
+
+  @override
+  void pushReplacement(BuildContext context) =>
+      context.pushReplacement(location);
+
+  @override
+  void replace(BuildContext context) => context.replace(location);
+}
+
+mixin $KnowledgePacksRoute on GoRouteData {
+  static KnowledgePacksRoute _fromState(GoRouterState state) =>
+      const KnowledgePacksRoute();
+
+  @override
+  String get location => GoRouteData.$location('/customize/knowledge-packs');
+
+  @override
+  void go(BuildContext context) => context.go(location);
+
+  @override
+  Future<T?> push<T>(BuildContext context) => context.push<T>(location);
+
+  @override
+  void pushReplacement(BuildContext context) =>
+      context.pushReplacement(location);
+
+  @override
+  void replace(BuildContext context) => context.replace(location);
+}
+
+mixin $WorkspaceSyncRoute on GoRouteData {
+  static WorkspaceSyncRoute _fromState(GoRouterState state) =>
+      const WorkspaceSyncRoute();
+
+  @override
+  String get location => GoRouteData.$location('/customize/workspace-sync');
 
   @override
   void go(BuildContext context) => context.go(location);

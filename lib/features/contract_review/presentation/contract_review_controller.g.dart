@@ -8,6 +8,54 @@ part of 'contract_review_controller.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
+/// Streams the most recently persisted contract analysis for live Home widgets.
+
+@ProviderFor(latestContractAnalysisStream)
+final latestContractAnalysisStreamProvider =
+    LatestContractAnalysisStreamProvider._();
+
+/// Streams the most recently persisted contract analysis for live Home widgets.
+
+final class LatestContractAnalysisStreamProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<ContractSummarySnapshot?>,
+          ContractSummarySnapshot?,
+          Stream<ContractSummarySnapshot?>
+        >
+    with
+        $FutureModifier<ContractSummarySnapshot?>,
+        $StreamProvider<ContractSummarySnapshot?> {
+  /// Streams the most recently persisted contract analysis for live Home widgets.
+  LatestContractAnalysisStreamProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'latestContractAnalysisStreamProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$latestContractAnalysisStreamHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<ContractSummarySnapshot?> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<ContractSummarySnapshot?> create(Ref ref) {
+    return latestContractAnalysisStream(ref);
+  }
+}
+
+String _$latestContractAnalysisStreamHash() =>
+    r'63f4cbebb6d5d2215c13c70e4543fa708a671087';
+
 /// Manages contract input/scan import, risk scoring, redlines, and rewrites.
 
 @ProviderFor(ContractReviewController)
@@ -45,7 +93,7 @@ final class ContractReviewControllerProvider
 }
 
 String _$contractReviewControllerHash() =>
-    r'd5f273799456c8dd24f85e05b041640b8c474d2a';
+    r'c5e61a2b693186750465a5d92654f331023278f1';
 
 /// Manages contract input/scan import, risk scoring, redlines, and rewrites.
 

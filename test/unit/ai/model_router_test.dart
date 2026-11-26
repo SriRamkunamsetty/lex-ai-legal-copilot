@@ -11,7 +11,7 @@ import 'package:lex_copilot/features/settings/domain/lex_settings.dart';
 
 class _StubAdapter implements EdgeAiRuntimeAdapter {
   new();
-  final bool installed = true;
+  bool installed = true;
 
   @override
   Future<void> initialize() async {}
@@ -41,51 +41,82 @@ class _StubAdapter implements EdgeAiRuntimeAdapter {
 
 void main() {
   group('ModelRouter', () {
-    test('honours onDevice routing and falls back to on-device when cloud is offline', () async {
-      final onDevice = OnDeviceGemmaService(runtime: _StubAdapter());
-      await onDevice.refreshAvailability();
+    test(
+      'never silently uploads to cloud in Auto mode without explicit consent',
+      () async {
+        final adapter = _StubAdapter();
+        final onDevice = OnDeviceGemmaService(runtime: adapter);
+        await onDevice.refreshAvailability();
 
-      final cloud = CloudGemmaService(
-        LexHttpClient(
-          flavorConfig: FlavorConfig.forFlavor(LexFlavor.dev),
-          dioOverride: Dio(BaseOptions(baseUrl: 'http://127.0.0.1:1')),
-        ),
-      );
+        final cloud = CloudGemmaService(
+          LexHttpClient(
+            flavorConfig: FlavorConfig.forFlavor(LexFlavor.dev),
+            dioOverride: Dio(BaseOptions(baseUrl: 'http://127.0.0.1:1')),
+          ),
+        );
 
-      var settings = const LexSettings();
-      var online = false;
+        var settings = const LexSettings();
+        var online = false;
+        var consentGranted = false;
 
-      final router = ModelRouter(
-        onDevice: onDevice,
-        cloud: cloud,
-        readSettings: () => settings,
-        isOnline: () async => online,
-      );
+        final router = ModelRouter(
+          onDevice: onDevice,
+          cloud: cloud,
+          readSettings: () => settings,
+          isOnline: () async => online,
+          requestCloudConsent: (_) async => consentGranted,
+        );
 
-      final onDeviceRoute = await router.resolveRoute(
-        taskKind: RoutingTaskKind.deepResearch,
-      );
-      expect(onDeviceRoute.primary.isOnDevice, isTrue);
+        // 1. Default onDevice stays local with no fallback.
+        final onDeviceRoute = await router.resolveRoute(
+          taskKind: RoutingTaskKind.deepResearch,
+        );
+        expect(onDeviceRoute.primary.isOnDevice, isTrue);
+        expect(onDeviceRoute.fallback, isNull);
 
-      // Cloud requested while offline + on-device ready -> falls back to on-device
-      settings = const LexSettings(modelRouting: LexModelRouting.cloud);
-      final offlineCloudRoute = await router.resolveRoute();
-      expect(offlineCloudRoute.primary.isOnDevice, isTrue);
+        // 2. Cloud requested while offline + on-device ready -> falls back to on-device.
+        settings = const LexSettings(modelRouting: LexModelRouting.cloud);
+        final offlineCloudRoute = await router.resolveRoute();
+        expect(offlineCloudRoute.primary.isOnDevice, isTrue);
 
-      // Auto + online + deepResearch -> selects cloud primary with on-device fallback
-      online = true;
-      settings = const LexSettings(modelRouting: LexModelRouting.auto);
-      final autoDeepRoute = await router.resolveRoute(
-        taskKind: RoutingTaskKind.deepResearch,
-      );
-      expect(autoDeepRoute.primary.isOnDevice, isFalse);
-      expect(autoDeepRoute.fallback?.isOnDevice, isTrue);
+        // 3. Auto + online + shortPrivate stays local with NO silent cloud fallback.
+        online = true;
+        settings = const LexSettings(modelRouting: LexModelRouting.auto);
+        final autoShortRoute = await router.resolveRoute();
+        expect(autoShortRoute.primary.isOnDevice, isTrue);
+        expect(autoShortRoute.fallback, isNull);
 
-      // If cloud fails on unreachable port, chat degrades gracefully to on-device
-      final reply = await router.chat(const [
-        LlmMessage(role: LlmRole.user, content: 'Explain BNS 304'),
-      ], taskKind: RoutingTaskKind.deepResearch).join();
-      expect(reply, 'on-device-reply');
-    });
+        // 4. Auto + online + deepResearch with consent DENIED keeps on-device.
+        consentGranted = false;
+        final declinedRoute = await router.resolveRoute(
+          taskKind: RoutingTaskKind.deepResearch,
+        );
+        expect(declinedRoute.primary.isOnDevice, isTrue);
+        expect(declinedRoute.fallback, isNull);
+
+        // 5. Auto + online + deepResearch with consent APPROVED selects cloud + on-device fallback.
+        consentGranted = true;
+        final approvedRoute = await router.resolveRoute(
+          taskKind: RoutingTaskKind.deepResearch,
+        );
+        expect(approvedRoute.primary.isOnDevice, isFalse);
+        expect(approvedRoute.fallback?.isOnDevice, isTrue);
+
+        // If cloud fails on unreachable port, chat degrades gracefully to on-device.
+        final reply = await router.chat(const [
+          LlmMessage(role: LlmRole.user, content: 'Explain BNS 304'),
+        ], taskKind: RoutingTaskKind.deepResearch).join();
+        expect(reply, 'on-device-reply');
+
+        // 6. Auto + on-device NOT installed + consent denied throws CloudConsentRequiredException.
+        adapter.installed = false;
+        await onDevice.refreshAvailability();
+        consentGranted = false;
+        expect(
+          router.resolveRoute,
+          throwsA(isA<CloudConsentRequiredException>()),
+        );
+      },
+    );
   });
 }

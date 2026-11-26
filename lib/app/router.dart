@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:lex_copilot/core/widgets/widgets.dart';
 import 'package:lex_copilot/features/case_file/presentation/case_file_screen.dart';
 import 'package:lex_copilot/features/chat/presentation/ask_screen.dart';
+import 'package:lex_copilot/features/compliance/presentation/compliance_screen.dart';
 import 'package:lex_copilot/features/contract_review/presentation/contract_review_screen.dart';
 import 'package:lex_copilot/features/draft/presentation/draft_screen.dart';
 import 'package:lex_copilot/features/home/presentation/home_screen.dart';
 import 'package:lex_copilot/features/incident/presentation/incident_screen.dart';
 import 'package:lex_copilot/features/legal_aid/presentation/legal_help_screen.dart';
+import 'package:lex_copilot/features/library/presentation/knowledge_packs_screen.dart';
 import 'package:lex_copilot/features/library/presentation/library_screen.dart';
 import 'package:lex_copilot/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:lex_copilot/features/scan/presentation/scan_screen.dart';
@@ -17,6 +19,7 @@ import 'package:lex_copilot/features/settings/presentation/ai_privacy_screen.dar
 import 'package:lex_copilot/features/settings/presentation/appearance_studio_screen.dart';
 import 'package:lex_copilot/features/settings/presentation/customize_screen.dart';
 import 'package:lex_copilot/features/settings/presentation/settings_controller.dart';
+import 'package:lex_copilot/features/settings/presentation/workspace_sync_screen.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'router.g.dart';
@@ -203,12 +206,25 @@ class LegalHelpRoute extends GoRouteData with $LegalHelpRoute {
       const LegalHelpScreen();
 }
 
+/// DPDP Act 2023 & Indian Compliance Intelligence route (`/compliance`).
+@TypedGoRoute<ComplianceRoute>(path: '/compliance')
+class ComplianceRoute extends GoRouteData with $ComplianceRoute {
+  /// Creates a [ComplianceRoute].
+  const new();
+
+  @override
+  Widget build(BuildContext context, GoRouterState state) =>
+      const ComplianceScreen();
+}
+
 /// Customize hub route (`/customize`) with Appearance Studio and AI/Privacy subroutes.
 @TypedGoRoute<CustomizeRoute>(
   path: '/customize',
   routes: <TypedRoute<RouteData>>[
     TypedGoRoute<AppearanceRoute>(path: 'appearance'),
     TypedGoRoute<AiPrivacyRoute>(path: 'ai-privacy'),
+    TypedGoRoute<KnowledgePacksRoute>(path: 'knowledge-packs'),
+    TypedGoRoute<WorkspaceSyncRoute>(path: 'workspace-sync'),
   ],
 )
 class CustomizeRoute extends GoRouteData with $CustomizeRoute {
@@ -240,6 +256,26 @@ class AiPrivacyRoute extends GoRouteData with $AiPrivacyRoute {
       const AiPrivacyScreen();
 }
 
+/// Offline Knowledge Packs management route (`/customize/knowledge-packs`).
+class KnowledgePacksRoute extends GoRouteData with $KnowledgePacksRoute {
+  /// Creates a [KnowledgePacksRoute].
+  const new();
+
+  @override
+  Widget build(BuildContext context, GoRouterState state) =>
+      const KnowledgePacksScreen();
+}
+
+/// Optional E2EE cloud sync & workspace route (`/customize/workspace-sync`).
+class WorkspaceSyncRoute extends GoRouteData with $WorkspaceSyncRoute {
+  /// Creates a [WorkspaceSyncRoute].
+  const new();
+
+  @override
+  Widget build(BuildContext context, GoRouterState state) =>
+      const WorkspaceSyncScreen();
+}
+
 /// Floating liquid-glass tab bar shell wrapping the 4 primary tabs.
 class MainShellScaffold extends StatelessWidget {
   /// Creates a [MainShellScaffold].
@@ -250,15 +286,59 @@ class MainShellScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LexScaffold(
-      body: navigationShell,
-      bottomOverlay: LexNavBar(
-        currentIndex: navigationShell.currentIndex,
-        onSelected: (index) => navigationShell.goBranch(
-          index,
-          initialLocation: index == navigationShell.currentIndex,
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 840) {
+          return LexScaffold(
+            body: navigationShell,
+            bottomOverlay: LexNavBar(
+              currentIndex: navigationShell.currentIndex,
+              onSelected: (index) => navigationShell.goBranch(
+                index,
+                initialLocation: index == navigationShell.currentIndex,
+              ),
+            ),
+          );
+        }
+        return LexScaffold(
+          body: Row(
+            children: [
+              NavigationRail(
+                selectedIndex: navigationShell.currentIndex,
+                onDestinationSelected: (index) => navigationShell.goBranch(
+                  index,
+                  initialLocation: index == navigationShell.currentIndex,
+                ),
+                labelType: NavigationRailLabelType.all,
+                destinations: const [
+                  NavigationRailDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home_rounded),
+                    label: Text('Home'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.document_scanner_outlined),
+                    selectedIcon: Icon(Icons.document_scanner_rounded),
+                    label: Text('Scan'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.chat_bubble_outline_rounded),
+                    selectedIcon: Icon(Icons.chat_bubble_rounded),
+                    label: Text('Ask'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.menu_book_outlined),
+                    selectedIcon: Icon(Icons.menu_book_rounded),
+                    label: Text('Library'),
+                  ),
+                ],
+              ),
+              const VerticalDivider(width: 1),
+              Expanded(child: navigationShell),
+            ],
+          ),
+        );
+      },
     );
   }
 }

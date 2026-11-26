@@ -32,6 +32,31 @@ class CaseFileRepository {
             .toList(),
       );
 
+  /// Streams deadlines across all cases ordered earliest due date first.
+  Stream<List<CaseDeadlineRecord>> watchUpcomingDeadlines({
+    bool includeCompleted = false,
+  }) {
+    final stmt = _db.select(_db.caseDeadlines)
+      ..orderBy([(t) => OrderingTerm.asc(t.dueAt)]);
+    if (!includeCompleted) {
+      stmt.where((t) => t.completed.equals(false));
+    }
+    return stmt.watch().map(
+      (rows) => rows
+          .map(
+            (r) => CaseDeadlineRecord(
+              id: r.id,
+              caseId: r.caseId,
+              title: r.title,
+              dueAt: r.dueAt,
+              reminderScheduled: r.reminderScheduled,
+              completed: r.completed,
+            ),
+          )
+          .toList(),
+    );
+  }
+
   /// Streams deadlines for [caseId] ordered earliest due date first.
   Stream<List<CaseDeadlineRecord>> watchDeadlines(String caseId) =>
       (_db.select(_db.caseDeadlines)

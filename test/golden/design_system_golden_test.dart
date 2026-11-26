@@ -5,7 +5,7 @@ import 'package:lex_copilot/core/widgets/widgets.dart';
 import 'package:lex_copilot/features/settings/domain/lex_settings.dart';
 
 Widget _buildDesignSystemShowcase(Brightness brightness) {
-  const settings = LexSettings();
+  const settings = LexSettings(accentPreset: LexAccentPreset.indigo);
   return MaterialApp(
     debugShowCheckedModeBanner: false,
     theme: LexTheme.build(settings, brightness),

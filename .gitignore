@@ -59,3 +59,7 @@ venv/
 .env
 *.jks
 key.properties
+
+# Intermediate corpus caches (source_books/constitution_india_2026.pdf is tracked for CI)
+data/cache/
+data/processed/

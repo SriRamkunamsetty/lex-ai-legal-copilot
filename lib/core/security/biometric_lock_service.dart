@@ -67,14 +67,33 @@ class BiometricLockGate extends StatefulWidget {
   State<BiometricLockGate> createState() => _BiometricLockGateState();
 }
 
-class _BiometricLockGateState extends State<BiometricLockGate> {
+class _BiometricLockGateState extends State<BiometricLockGate>
+    with WidgetsBindingObserver {
   bool _unlocked = false;
   bool _authenticating = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _unlocked = !widget.locked;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!widget.locked) return;
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      if (_unlocked && !_authenticating && mounted) {
+        setState(() => _unlocked = false);
+      }
+    }
   }
 
   @override

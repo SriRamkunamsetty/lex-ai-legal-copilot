@@ -113,12 +113,68 @@ final class LegalCorpusRepositoryProvider
 String _$legalCorpusRepositoryHash() =>
     r'b46acca180691ff7ff3cc1f6e12be71ab0520824';
 
-/// Seeds the offline legal corpus on first access.
+/// Provides the offline [KnowledgePackService] verifying & hydrating
+/// signed Constitution and Central Act Knowledge Packs.
+
+@ProviderFor(knowledgePackService)
+final knowledgePackServiceProvider = KnowledgePackServiceProvider._();
+
+/// Provides the offline [KnowledgePackService] verifying & hydrating
+/// signed Constitution and Central Act Knowledge Packs.
+
+final class KnowledgePackServiceProvider
+    extends
+        $FunctionalProvider<
+          KnowledgePackService,
+          KnowledgePackService,
+          KnowledgePackService
+        >
+    with $Provider<KnowledgePackService> {
+  /// Provides the offline [KnowledgePackService] verifying & hydrating
+  /// signed Constitution and Central Act Knowledge Packs.
+  KnowledgePackServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'knowledgePackServiceProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$knowledgePackServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<KnowledgePackService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  KnowledgePackService create(Ref ref) {
+    return knowledgePackService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(KnowledgePackService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<KnowledgePackService>(value),
+    );
+  }
+}
+
+String _$knowledgePackServiceHash() =>
+    r'ec12a797ad3f05f356c7b155e01ff2f15a79cb2c';
+
+/// Seeds the offline legal corpus & verified Knowledge Packs on first access.
 
 @ProviderFor(corpusSeed)
 final corpusSeedProvider = CorpusSeedProvider._();
 
-/// Seeds the offline legal corpus on first access.
+/// Seeds the offline legal corpus & verified Knowledge Packs on first access.
 
 final class CorpusSeedProvider
     extends
@@ -128,7 +184,7 @@ final class CorpusSeedProvider
           FutureOr<Result<int>>
         >
     with $FutureModifier<Result<int>>, $FutureProvider<Result<int>> {
-  /// Seeds the offline legal corpus on first access.
+  /// Seeds the offline legal corpus & verified Knowledge Packs on first access.
   CorpusSeedProvider._()
     : super(
         from: null,
@@ -155,7 +211,7 @@ final class CorpusSeedProvider
   }
 }
 
-String _$corpusSeedHash() => r'4ddf3ffafb7efb184887715271460f9319aa9724';
+String _$corpusSeedHash() => r'35555a64b24bda6229e4c5183a45676829ac77e3';
 
 /// Fetches a single statutory section by [actCode] and [sectionNumber] after
 /// ensuring the corpus is seeded.
