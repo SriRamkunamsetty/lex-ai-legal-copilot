@@ -93,7 +93,7 @@ final class ChatControllerProvider
   }
 }
 
-String _$chatControllerHash() => r'9261633f98e094ec7fc22412eaa5a12a1320176a';
+String _$chatControllerHash() => r'3af324c1cbc98bfc7a4608af56f5a096b2c46cbb';
 
 /// Manages document-grounded chat history, encrypted SQLite persistence,
 /// explicit cloud escalation consent, streaming responses, and verification.

@@ -77,6 +77,68 @@ class _DraftScreenState extends ConsumerState<DraftScreen> {
     await SharePlus.instance.share(ShareParams(text: content));
   }
 
+  Future<void> _showDiffModal(
+    DraftVersionSnapshot baseline,
+    String currentText,
+  ) async {
+    final diffLines = DraftController.computeLineDiff(
+      baseline.content,
+      currentText,
+    );
+    final tokens = context.lexTokens;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: SizedBox(
+            height: 420,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Diff vs ${baseline.versionLabel}',
+                  style: Theme.of(ctx).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: diffLines.length,
+                    itemBuilder: (_, idx) {
+                      final line = diffLines[idx];
+                      final prefix = switch (line.kind) {
+                        DraftDiffKind.added => '+ ',
+                        DraftDiffKind.removed => '- ',
+                        DraftDiffKind.unchanged => '  ',
+                      };
+                      final color = switch (line.kind) {
+                        DraftDiffKind.added => tokens.riskLow,
+                        DraftDiffKind.removed => tokens.riskHigh,
+                        DraftDiffKind.unchanged => tokens.secondaryText,
+                      };
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 1.5),
+                        child: Text(
+                          '$prefix${line.text}',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            color: color,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _saveDraft() async {
     final res = await ref
         .read(draftControllerProvider.notifier)
@@ -305,6 +367,23 @@ class _DraftScreenState extends ConsumerState<DraftScreen> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: LexChip(
+                              label: '+ Save Snapshot',
+                              onTap: controller.saveVersionSnapshot,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: LexChip(
+                              label: 'Compare Diff',
+                              onTap: () => _showDiffModal(
+                                state.versions.last,
+                                state.editedContent,
+                              ),
+                            ),
+                          ),
                           for (var i = 0; i < state.versions.length; i++)
                             Padding(
                               padding: const EdgeInsets.only(right: 6),

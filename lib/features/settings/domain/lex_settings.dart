@@ -142,8 +142,9 @@ abstract class LexSettings with _$LexSettings {
     List<LexHomeWidget> homeWidgetOrder,
     @Default(<LexHomeWidget>[
       LexHomeWidget.scanCta,
-      LexHomeWidget.askBar,
       LexHomeWidget.quickActions,
+      LexHomeWidget.deadlines,
+      LexHomeWidget.riskRadar,
       LexHomeWidget.recent,
     ])
     List<LexHomeWidget> enabledHomeWidgets,

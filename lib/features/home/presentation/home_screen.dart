@@ -35,7 +35,7 @@ class HomeScreen extends ConsumerWidget {
         tokens.space(22),
         tokens.space(20),
         tokens.space(22),
-        112,
+        24 + ClaudeBottomBarInset.of(context),
       ),
       children: [
         Row(
@@ -175,27 +175,7 @@ class HomeScreen extends ConsumerWidget {
         ),
       ),
     ),
-    LexHomeWidget.askBar => LexCard(
-      borderRadius: tokens.pillRadius,
-      onTap: () => context.go('/ask'),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      child: Row(
-        children: [
-          Icon(
-            Icons.chat_bubble_outline_rounded,
-            size: 20,
-            color: tokens.secondaryText,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Ask Lex anything legal…',
-              style: TextStyle(fontSize: 15, color: tokens.secondaryText),
-            ),
-          ),
-        ],
-      ),
-    ),
+    LexHomeWidget.askBar => const SizedBox.shrink(),
     LexHomeWidget.quickActions => SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(

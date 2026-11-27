@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from scripts.ingest_constitution import parse_constitution_pdf
+from scripts.verify_sources import is_allowed_official_url
 
 
 def test_constitution_pdf_ingestion_captures_all_parts_statuses_and_ninth_schedule() -> None:
@@ -57,3 +58,10 @@ def test_pack_catalog_sha256_integrity() -> None:
         actual_sha = hashlib.sha256(pack_file.read_bytes()).hexdigest()
         assert actual_sha == pack["sha256"]
         assert pack["size_bytes"] == pack_file.stat().st_size
+
+
+def test_verify_sources_enforces_official_gov_domain_allowlist() -> None:
+    assert is_allowed_official_url("https://www.indiacode.nic.in/bitstream/1.pdf")
+    assert is_allowed_official_url("https://legislative.gov.in/sites/default/files/A1872-09.pdf")
+    assert not is_allowed_official_url("http://www.indiacode.nic.in/insecure.pdf")
+    assert not is_allowed_official_url("https://unofficial-law-blog.com/act.pdf")

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,7 +17,8 @@ part 'app.g.dart';
 @Riverpod(keepAlive: true)
 FlavorConfig flavorConfig(Ref ref) => FlavorConfig.fromEnvironment();
 
-/// Root application widget for Lex.
+/// Root application widget for Lex with liquid-smooth theme transitions and
+/// fast page animations.
 class LexApp extends ConsumerWidget {
   /// Creates a [LexApp].
   const new({super.key});
@@ -28,12 +30,33 @@ class LexApp extends ConsumerWidget {
     final flavor = ref.watch(flavorConfigProvider);
     final securityService = ref.watch(appSecurityServiceProvider);
 
+    const smoothTransitions = PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+      },
+    );
+
+    final lightTheme = LexTheme.build(
+      settings,
+      Brightness.light,
+    ).copyWith(pageTransitionsTheme: smoothTransitions);
+    final darkTheme = LexTheme.build(
+      settings,
+      Brightness.dark,
+    ).copyWith(pageTransitionsTheme: smoothTransitions);
+
     return MaterialApp.router(
       title: flavor.appName,
       debugShowCheckedModeBanner: false,
       themeMode: LexTheme.toMaterialThemeMode(settings.themeMode),
-      theme: LexTheme.build(settings, Brightness.light),
-      darkTheme: LexTheme.build(settings, Brightness.dark),
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeAnimationDuration: const Duration(milliseconds: 340),
+      themeAnimationCurve: Curves.easeInOutCubicEmphasized,
       locale: Locale(settings.appLanguage),
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: const [

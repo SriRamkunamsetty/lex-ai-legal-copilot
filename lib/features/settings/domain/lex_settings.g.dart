@@ -44,8 +44,9 @@ _LexSettings _$LexSettingsFromJson(Map<String, dynamic> json) => _LexSettings(
           .toList() ??
       const <LexHomeWidget>[
         LexHomeWidget.scanCta,
-        LexHomeWidget.askBar,
         LexHomeWidget.quickActions,
+        LexHomeWidget.deadlines,
+        LexHomeWidget.riskRadar,
         LexHomeWidget.recent,
       ],
   aiAnswerStyle:

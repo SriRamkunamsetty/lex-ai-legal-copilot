@@ -25,7 +25,7 @@ class ScanScreen extends ConsumerWidget {
         tokens.space(22),
         tokens.space(20),
         tokens.space(22),
-        118,
+        24 + ClaudeBottomBarInset.of(context),
       ),
       children: [
         Row(

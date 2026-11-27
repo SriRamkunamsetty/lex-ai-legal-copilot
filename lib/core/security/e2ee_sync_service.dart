@@ -1,9 +1,14 @@
+// Encapsulated transport & store fields keep E2EE internals private.
+// ignore_for_file: prefer_initializing_formals
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:math';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:lex_copilot/core/errors/failure.dart';
+import 'package:lex_copilot/core/network/lex_http_client.dart';
 import 'package:lex_copilot/core/result.dart';
 import 'package:lex_copilot/core/security/secure_key_store.dart';
 
@@ -280,4 +285,235 @@ class E2eeSyncService {
       .replaceAll(RegExp('^LEX-', caseSensitive: false), '')
       .replaceAll('-', '')
       .trim();
+}
+
+/// Summary of an optional E2EE cloud sync pass.
+@immutable
+class E2eeSyncSummary {
+  /// Creates an [E2eeSyncSummary].
+  const new({
+    required this.pushedCount,
+    required this.pulledCount,
+    required this.decryptedRecords,
+  });
+
+  /// Number of encrypted envelopes uploaded to `/v1/sync/push`.
+  final int pushedCount;
+
+  /// Number of encrypted envelopes downloaded from `/v1/sync/pull`.
+  final int pulledCount;
+
+  /// Client-side decrypted records verified via AEAD tag & AAD.
+  final List<Map<String, dynamic>> decryptedRecords;
+}
+
+/// HTTP transport connecting [E2eeSyncService] to the optional P5 backend routes
+/// (`/v1/accounts/*`, `/v1/orgs/*`, `/v1/sync/push`, `/v1/sync/pull`).
+class E2eeSyncTransport {
+  /// Creates an [E2eeSyncTransport].
+  const new({
+    required E2eeSyncService crypto,
+    required LexHttpClient httpClient,
+  }) : _crypto = crypto,
+       _httpClient = httpClient;
+
+  final E2eeSyncService _crypto;
+  final LexHttpClient _httpClient;
+
+  String _platformName() {
+    if (kIsWeb) return 'other';
+    if (Platform.isAndroid) return 'android';
+    if (Platform.isIOS) return 'ios';
+    return 'desktop';
+  }
+
+  /// Registers a new optional sync account and persists its workspace token.
+  Future<Result<String>> registerAccount({
+    required String email,
+    required String password,
+    required String deviceId,
+    String displayLabel = 'Lex User',
+  }) => Result.guard(
+    () async {
+      final resp = await _httpClient.dio.post<Map<String, dynamic>>(
+        '/v1/accounts/register',
+        data: {
+          'email': email.trim(),
+          'password': password,
+          'display_label': displayLabel.trim(),
+          'device_id': deviceId,
+          'device_name': 'Lex ${_platformName()}',
+          'platform': _platformName(),
+        },
+      );
+      final token = resp.data?['token'] as String? ?? '';
+      final userId = resp.data?['user_id'] as String? ?? '';
+      if (token.isEmpty) {
+        throw StateError(
+          'Workspace registration did not return a session token.',
+        );
+      }
+      await _crypto.saveWorkspaceToken(token);
+      return userId;
+    },
+    onError: (e, _) =>
+        NetworkFailure('Account registration failed: $e', cause: e),
+  );
+
+  /// Authenticates an existing optional sync account and saves its session token.
+  Future<Result<String>> loginAccount({
+    required String email,
+    required String password,
+    required String deviceId,
+  }) => Result.guard(
+    () async {
+      final resp = await _httpClient.dio.post<Map<String, dynamic>>(
+        '/v1/accounts/login',
+        data: {
+          'email': email.trim(),
+          'password': password,
+          'device_id': deviceId,
+          'device_name': 'Lex ${_platformName()}',
+          'platform': _platformName(),
+        },
+      );
+      final token = resp.data?['token'] as String? ?? '';
+      final userId = resp.data?['user_id'] as String? ?? '';
+      if (token.isEmpty) {
+        throw StateError('Workspace sign-in did not return a session token.');
+      }
+      await _crypto.saveWorkspaceToken(token);
+      return userId;
+    },
+    onError: (e, _) => NetworkFailure('Workspace sign-in failed: $e', cause: e),
+  );
+
+  /// Revokes all active sessions across devices and clears local token.
+  Future<Result<void>> logoutAllSessions() => Result.guard(
+    () async {
+      final token = await _requireToken();
+      await _httpClient.dio.post<Map<String, dynamic>>(
+        '/v1/accounts/logout-all',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      await _crypto.clearSyncCredentials();
+    },
+    onError: (e, _) =>
+        NetworkFailure('Failed to log out all sessions: $e', cause: e),
+  );
+
+  /// Lists devices registered to the authenticated sync account.
+  Future<Result<List<Map<String, dynamic>>>> listDevices() => Result.guard(
+    () async {
+      final token = await _requireToken();
+      final resp = await _httpClient.dio.get<Map<String, dynamic>>(
+        '/v1/accounts/devices',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      final raw = resp.data?['devices'] as List<dynamic>? ?? const [];
+      return raw.whereType<Map<String, dynamic>>().toList();
+    },
+    onError: (e, _) => NetworkFailure('Failed to load devices: $e', cause: e),
+  );
+
+  /// Revokes [deviceId] on the server.
+  Future<Result<void>> revokeDevice(String deviceId) => Result.guard(
+    () async {
+      final token = await _requireToken();
+      await _httpClient.dio.post<Map<String, dynamic>>(
+        '/v1/accounts/devices/$deviceId/revoke',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+    },
+    onError: (e, _) => NetworkFailure('Failed to revoke device: $e', cause: e),
+  );
+
+  /// Creates an optional multi-tenant Organization workspace with the caller as owner.
+  Future<Result<Map<String, dynamic>>> createOrganization(String name) =>
+      Result.guard(
+        () async {
+          final token = await _requireToken();
+          final resp = await _httpClient.dio.post<Map<String, dynamic>>(
+            '/v1/orgs',
+            data: {'name': name.trim()},
+            options: Options(headers: {'Authorization': 'Bearer $token'}),
+          );
+          return resp.data ?? const <String, dynamic>{};
+        },
+        onError: (e, _) =>
+            NetworkFailure('Organization creation failed: $e', cause: e),
+      );
+
+  /// Encrypts [records] client-side and pushes/pulls via `/v1/sync/push` & `/v1/sync/pull`.
+  Future<Result<E2eeSyncSummary>> pushAndPullRecords({
+    required List<
+      ({String recordType, String recordId, Map<String, dynamic> payload})
+    >
+    records,
+    String? orgId,
+  }) => Result.guard(() async {
+    final token = await _requireToken();
+    final envelopes = <Map<String, dynamic>>[];
+    for (final rec in records.take(50)) {
+      final encrypted = await _crypto.encryptRecord(
+        recordType: rec.recordType,
+        recordId: rec.recordId,
+        orgId: orgId,
+        payload: rec.payload,
+      );
+      switch (encrypted) {
+        case Success(:final value):
+          envelopes.add(value.toJson());
+        case Err(:final failure):
+          throw StateError(failure.message);
+      }
+    }
+
+    var accepted = 0;
+    if (envelopes.isNotEmpty) {
+      final pushResp = await _httpClient.dio.post<Map<String, dynamic>>(
+        '/v1/sync/push',
+        data: {'blobs': envelopes},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      accepted =
+          (pushResp.data?['accepted_count'] as num?)?.toInt() ??
+          envelopes.length;
+    }
+
+    final pullResp = await _httpClient.dio.get<Map<String, dynamic>>(
+      '/v1/sync/pull',
+      queryParameters: {
+        if (orgId != null && orgId.trim().isNotEmpty) 'org_id': orgId.trim(),
+      },
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    final rawBlobs = pullResp.data?['blobs'] as List<dynamic>? ?? const [];
+    final decrypted = <Map<String, dynamic>>[];
+    for (final item in rawBlobs.whereType<Map<String, dynamic>>()) {
+      final env = E2eeSyncEnvelope.fromJson(item);
+      final dec = await _crypto.decryptRecord(env);
+      if (dec case Success(:final value)) {
+        decrypted.add({
+          'record_type': env.recordType,
+          'record_id': env.recordId,
+          'version': env.version,
+          'payload': value,
+        });
+      }
+    }
+    return E2eeSyncSummary(
+      pushedCount: accepted,
+      pulledCount: rawBlobs.length,
+      decryptedRecords: decrypted,
+    );
+  }, onError: (e, _) => NetworkFailure('E2EE sync failed: $e', cause: e));
+
+  Future<String> _requireToken() async {
+    final token = await _crypto.readWorkspaceToken();
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Sign in to an optional sync account first.');
+    }
+    return token.trim();
+  }
 }

@@ -28,6 +28,7 @@ class AppearanceStudioScreen extends ConsumerWidget {
     final controller = ref.read(settingsControllerProvider.notifier);
 
     return LexScaffold(
+      showTopGlow: false,
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           tokens.space(22),
@@ -97,6 +98,9 @@ class AppearanceStudioScreen extends ConsumerWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Slider(
+                          divisions: 10,
+                          label:
+                              '${(settings.glassBlurIntensity * 100).round()}%',
                           value: settings.glassBlurIntensity,
                           onChanged: controller.setGlassBlurIntensity,
                         ),

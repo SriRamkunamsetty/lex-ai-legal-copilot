@@ -21,6 +21,7 @@ class CustomizeScreen extends ConsumerWidget {
     final controller = ref.read(settingsControllerProvider.notifier);
 
     return LexScaffold(
+      showTopGlow: false,
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           tokens.space(22),

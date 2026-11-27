@@ -6,8 +6,8 @@ import 'package:lex_copilot/core/widgets/widgets.dart';
 import 'package:lex_copilot/features/library/presentation/library_providers.dart';
 import 'package:lex_copilot/legal_corpus/providers/corpus_providers.dart';
 
-/// Offline Library screen supporting full-text search across India's statutory
-/// corpus plus encrypted Bookmarks, Scans, Drafts, and Activity History.
+/// Clean, interactive Indian Law Library browser with Statute cards and
+/// scannable compact provision rows (no multi-line paragraph walls).
 class LibraryScreen extends ConsumerStatefulWidget {
   /// Creates a [LibraryScreen].
   const new({super.key});
@@ -30,6 +30,54 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     (value: 4, label: 'History'),
   ];
 
+  static const List<
+    ({String code, String title, String subtitle, String count, IconData icon})
+  >
+  _statuteCards = [
+    (
+      code: 'CONST',
+      title: 'Constitution of India',
+      subtitle: 'Articles, Schedules & Amendments',
+      count: '513 items',
+      icon: Icons.account_balance_outlined,
+    ),
+    (
+      code: 'BNS',
+      title: 'Bharatiya Nyaya Sanhita',
+      subtitle: 'Criminal Substantive Code (2023)',
+      count: '358 sec',
+      icon: Icons.gavel_outlined,
+    ),
+    (
+      code: 'BNSS',
+      title: 'Bharatiya Nagarik Suraksha',
+      subtitle: 'Criminal Procedure & FIR (2023)',
+      count: '531 sec',
+      icon: Icons.balance_outlined,
+    ),
+    (
+      code: 'BSA',
+      title: 'Bharatiya Sakshya Adhiniyam',
+      subtitle: 'Electronic & Documentary Evidence',
+      count: '170 sec',
+      icon: Icons.fact_check_outlined,
+    ),
+    (
+      code: 'DPDP_2023',
+      title: 'DPDP Act, 2023',
+      subtitle: 'Personal Data & Consent Obligations',
+      count: '31 sec',
+      icon: Icons.shield_outlined,
+    ),
+    (
+      code: 'IT_2000',
+      title: 'IT Act, 2000',
+      subtitle: 'Cyber Offences & Intermediaries',
+      count: '30 sec',
+      icon: Icons.devices_outlined,
+    ),
+  ];
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -42,27 +90,30 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
     return ListView(
       padding: EdgeInsets.fromLTRB(
-        tokens.space(22),
         tokens.space(20),
-        tokens.space(22),
-        112,
+        tokens.space(18),
+        tokens.space(20),
+        24 + ClaudeBottomBarInset.of(context),
       ),
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Library', style: Theme.of(context).textTheme.headlineLarge),
-            IconButton(
-              tooltip: 'Customize',
-              onPressed: () => context.push('/customize'),
-              icon: Icon(Icons.tune_rounded, color: tokens.text),
+            TextButton.icon(
+              onPressed: () => context.push('/customize/knowledge-packs'),
+              icon: const Icon(Icons.inventory_2_outlined, size: 18),
+              label: const Text('Packs'),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        LexCard(
-          borderRadius: tokens.pillRadius,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
+          decoration: BoxDecoration(
+            color: tokens.neutralControlFill,
+            borderRadius: BorderRadius.circular(24),
+          ),
           child: Row(
             children: [
               Icon(Icons.search_rounded, size: 20, color: tokens.secondaryText),
@@ -72,7 +123,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   controller: _searchController,
                   onChanged: (value) => setState(() => _query = value),
                   decoration: InputDecoration(
-                    hintText: 'Search BNS, BNSS, BSA, bookmarks, scans…',
+                    hintText: 'Search Article 21, BNS 304, DPDP…',
                     hintStyle: TextStyle(
                       fontSize: 14,
                       color: tokens.secondaryText,
@@ -114,30 +165,180 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             ],
           ),
         ),
-        if (_tab == 0) ...[
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              for (final act in [null, 'BNS', 'BNSS', 'BSA'])
-                LexChip(
-                  label: act ?? 'All acts',
-                  selected: _selectedAct == act,
-                  onTap: () => setState(() => _selectedAct = act),
+        if (_tab == 0 && _query.trim().isEmpty && _selectedAct == null) ...[
+          const SizedBox(height: 14),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.38,
+            ),
+            itemCount: _statuteCards.length,
+            itemBuilder: (context, idx) {
+              final card = _statuteCards[idx];
+              return LexCard(
+                padding: const EdgeInsets.all(14),
+                onTap: () => setState(() => _selectedAct = card.code),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Icon(card.icon, size: 20, color: tokens.accent),
+                        Text(
+                          card.count,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: tokens.secondaryText,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          card.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: tokens.text,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          card.subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: tokens.secondaryText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-            ],
+              );
+            },
+          ),
+        ] else if (_tab == 0) ...[
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final act in [
+                  null,
+                  'CONST',
+                  'BNS',
+                  'BNSS',
+                  'BSA',
+                  'DPDP_2023',
+                  'IT_2000',
+                ]) ...[
+                  LexChip(
+                    label: act ?? 'All acts',
+                    selected: _selectedAct == act,
+                    onTap: () => setState(() => _selectedAct = act),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+              ],
+            ),
           ),
         ],
         const SizedBox(height: 14),
         switch (_tab) {
-          0 => _SectionsView(query: _query, actCode: _selectedAct),
+          0 when _query.trim().isNotEmpty || _selectedAct != null =>
+            _SectionsView(query: _query, actCode: _selectedAct),
+          0 => const SizedBox.shrink(),
           1 => _BookmarksView(query: _query),
           2 => _ScansView(query: _query),
           3 => _DraftsView(query: _query),
           _ => _HistoryView(query: _query),
         },
       ],
+    );
+  }
+}
+
+class _CompactProvisionCard extends StatelessWidget {
+  const new({
+    required this.badge,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final String badge;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.lexTokens;
+    return LexCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              color: tokens.neutralControlFill,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              badge,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: tokens.accent,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: tokens.text,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: tokens.secondaryText),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.chevron_right_rounded,
+            size: 20,
+            color: tokens.secondaryText,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -157,11 +358,11 @@ class _SectionsView extends ConsumerWidget {
     return searchAsync.when(
       loading: () => const Column(
         children: [
-          LexSkeleton(height: 76),
-          SizedBox(height: 10),
-          LexSkeleton(height: 76),
-          SizedBox(height: 10),
-          LexSkeleton(height: 76),
+          LexSkeleton(height: 60),
+          SizedBox(height: 8),
+          LexSkeleton(height: 60),
+          SizedBox(height: 8),
+          LexSkeleton(height: 60),
         ],
       ),
       error: (err, _) => ErrorState(
@@ -180,23 +381,23 @@ class _SectionsView extends ConsumerWidget {
             return const EmptyState(
               icon: Icons.search_off_rounded,
               title: 'No matching sections',
-              message: 'Try a section number like "304" or keywords like "theft" or "FIR".',
+              message: 'Try an Article/Section number like "21" or "304", or pick another Act.',
             );
           }
           return Column(
             children: [
               for (final section in sections) ...[
-                SectionTile(
-                  citation: '${section.actCode} ${section.sectionNumber}',
+                _CompactProvisionCard(
+                  badge: '${section.actCode} ${section.sectionNumber}',
                   title: section.title,
-                  summary:
-                      section.plainLanguage ??
-                      section.text.replaceAll('\n', ' '),
+                  subtitle: section.chapter.isNotEmpty
+                      ? section.chapter
+                      : section.actName,
                   onTap: () => context.push(
                     '/section/${section.actCode}/${section.sectionNumber}',
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
               ],
             ],
           );
@@ -216,7 +417,7 @@ class _BookmarksView extends ConsumerWidget {
     final bookmarksAsync = ref.watch(bookmarksStreamProvider);
 
     return bookmarksAsync.when(
-      loading: () => const LexSkeleton(height: 76),
+      loading: () => const LexSkeleton(height: 60),
       error: (err, _) => ErrorState(message: err.toString()),
       data: (bookmarks) {
         final q = query.trim().toLowerCase();
@@ -241,15 +442,15 @@ class _BookmarksView extends ConsumerWidget {
         return Column(
           children: [
             for (final bookmark in filtered) ...[
-              SectionTile(
-                citation: '${bookmark.actCode} ${bookmark.sectionNumber}',
-                title: 'Bookmarked section',
-                summary: bookmark.note ?? 'Tap to open in Section Reader',
+              _CompactProvisionCard(
+                badge: '${bookmark.actCode} ${bookmark.sectionNumber}',
+                title: 'Saved provision',
+                subtitle: bookmark.note ?? 'Open in Section Reader',
                 onTap: () => context.push(
                   '/section/${bookmark.actCode}/${bookmark.sectionNumber}',
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
             ],
           ],
         );
@@ -268,7 +469,7 @@ class _ScansView extends ConsumerWidget {
     final scansAsync = ref.watch(scansStreamProvider(query));
 
     return scansAsync.when(
-      loading: () => const LexSkeleton(height: 76),
+      loading: () => const LexSkeleton(height: 60),
       error: (err, _) => ErrorState(message: err.toString()),
       data: (scans) {
         if (scans.isEmpty) {
@@ -288,7 +489,7 @@ class _ScansView extends ConsumerWidget {
                 subtitle: '${scan.pageCount} page(s)',
                 onTap: () => context.go('/ask'),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
             ],
           ],
         );
@@ -307,7 +508,7 @@ class _DraftsView extends ConsumerWidget {
     final draftsAsync = ref.watch(draftsStreamProvider(query));
 
     return draftsAsync.when(
-      loading: () => const LexSkeleton(height: 76),
+      loading: () => const LexSkeleton(height: 60),
       error: (err, _) => ErrorState(message: err.toString()),
       data: (drafts) {
         if (drafts.isEmpty) {
@@ -323,27 +524,13 @@ class _DraftsView extends ConsumerWidget {
         return Column(
           children: [
             for (final draft in drafts) ...[
-              LexCard(
+              _CompactProvisionCard(
+                badge: 'DRAFT',
+                title: draft.title,
+                subtitle: draft.templateType,
                 onTap: () => context.push('/draft'),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      draft.title,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      draft.templateType,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ],
-                ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
             ],
           ],
         );
@@ -359,11 +546,10 @@ class _HistoryView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tokens = context.lexTokens;
     final historyAsync = ref.watch(historyStreamProvider(query));
 
     return historyAsync.when(
-      loading: () => const LexSkeleton(height: 76),
+      loading: () => const LexSkeleton(height: 60),
       error: (err, _) => ErrorState(message: err.toString()),
       data: (items) {
         if (items.isEmpty) {
@@ -376,40 +562,13 @@ class _HistoryView extends ConsumerWidget {
         return Column(
           children: [
             for (final item in items) ...[
-              LexCard(
+              _CompactProvisionCard(
+                badge: item.kind.toUpperCase(),
+                title: item.title,
+                subtitle: item.subtitle,
                 onTap: () => context.push(item.route),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.title,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: tokens.text,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            item.subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: tokens.secondaryText,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    CitationChip(citation: item.kind),
-                  ],
-                ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
             ],
           ],
         );

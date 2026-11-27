@@ -1,6 +1,7 @@
 // Private fields use named public parameters for readability across pipelines.
 // ignore_for_file: prefer_initializing_formals
 import 'package:flutter/foundation.dart';
+import 'package:lex_copilot/ai/cloud/cloud_gemma_service.dart';
 import 'package:lex_copilot/ai/llm_service.dart';
 import 'package:lex_copilot/ai/prompts/prompt_registry.dart';
 import 'package:lex_copilot/ai/rag/local_rag_engine.dart';
@@ -253,6 +254,70 @@ class ResearchPipeline {
       );
     }
     return llm.chat(messages, options: genOptions);
+  }
+
+  /// Calls the bounded cloud `/v1/research/verified` workflow when cloud inference
+  /// is explicitly chosen and maps its Module G provenance blocks into [VerifiedResearchAnswer].
+  Future<VerifiedResearchAnswer?> tryCloudVerifiedResearch({
+    required CloudGemmaService cloudService,
+    required String question,
+  }) async {
+    final res = await cloudService.verifiedResearch(question);
+    final data = res.valueOrNull;
+    if (data == null) return null;
+
+    final rawCitations =
+        data['verified_citations'] as List<dynamic>? ?? const [];
+    final citations = rawCitations.whereType<Map<String, dynamic>>().map((c) {
+      final ref = (c['canonical_ref'] as String? ?? '').trim();
+      final parts = ref.split(':');
+      final act = parts.length >= 2 ? parts[0] : 'CONST';
+      final num = parts.isNotEmpty ? parts.last : ref;
+      return VerifiedCitation(
+        actCode: act,
+        sectionNumber: num,
+        verified: c['verified'] as bool? ?? true,
+        sectionTitle: c['title'] as String?,
+      );
+    }).toList();
+
+    final prov = data['provenance'] as Map<String, dynamic>? ?? const {};
+    final officialExcerpts =
+        (prov['official_provisions'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(
+              (p) =>
+                  '${p['canonical_ref']} (${p['title']}): ${p['excerpt'] ?? ''}',
+            )
+            .toList();
+    final footnoteWarnings =
+        (prov['lifecycle_warnings'] as List<dynamic>? ?? const [])
+            .map((e) => e.toString())
+            .toList();
+    final externalNotices =
+        (prov['unloaded_external_acts'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map((e) => '${e['title']} (Pending Review / Not Loaded)')
+            .toList();
+
+    final answerText = (data['answer_text'] as String? ?? '').trim();
+    return VerifiedResearchAnswer(
+      answerText: answerText.isEmpty ? verifyNotice : answerText,
+      citations: citations,
+      confidence: citations.isNotEmpty
+          ? ConfidenceLevel.high
+          : ConfidenceLevel.medium,
+      reasoningTrail:
+          'Cloud bounded workflow (${data['intent'] ?? 'legal_research'}) via ${data['provider'] ?? 'gemini'} (${data['model'] ?? 'gemma-4'}).',
+      counterArguments: 'Verify all statutory & constitutional amendments against the official India Code portal.',
+      droppedUnverifiedCount: 0,
+      provenance: ProvenanceAnswerBlocks(
+        intentLabel: data['intent'] as String? ?? 'Legal Research',
+        officialTextExcerpts: officialExcerpts,
+        footnoteWarnings: footnoteWarnings,
+        unavailableExternalNotices: externalNotices,
+      ),
+    );
   }
 
   /// Runs the deterministic VERIFIER PASS over [rawAnswer] against the corpus

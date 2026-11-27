@@ -223,6 +223,37 @@ class ChatController extends _$ChatController {
     final settings = ref.read(settingsControllerProvider);
 
     try {
+      if (allowCloudConsent && state.attachedScan == null) {
+        final cloudVerified = await pipeline.tryCloudVerifiedResearch(
+          cloudService: ref.read(cloudGemmaServiceProvider),
+          question: question,
+        );
+        if (cloudVerified != null) {
+          const cloudLabel = 'Cloud · Gemini/Gemma Verified';
+          _updateMessage(
+            assistantId,
+            (msg) => msg.copyWith(
+              text: cloudVerified.answerText,
+              isStreaming: false,
+              clearError: true,
+              engineLabel: cloudLabel,
+              confidence: cloudVerified.confidence,
+              citations: cloudVerified.citations,
+              reasoningTrail: cloudVerified.reasoningTrail,
+              counterArguments: cloudVerified.counterArguments,
+              droppedUnverifiedCount: cloudVerified.droppedUnverifiedCount,
+              provenance: cloudVerified.provenance,
+            ),
+          );
+          final doneMsg = state.messages.firstWhere((m) => m.id == assistantId);
+          unawaited(
+            repo.upsertMessage(conversationId: convoId, message: doneMsg),
+          );
+          state = state.copyWith(isGenerating: false, clearFailedPrompt: true);
+          return true;
+        }
+      }
+
       final prepared = await pipeline.prepareQuery(
         question: question,
         settings: settings,

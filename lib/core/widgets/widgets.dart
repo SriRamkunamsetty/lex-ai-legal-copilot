@@ -1,5 +1,6 @@
 export 'chat_bubble.dart';
 export 'citation_chip.dart';
+export 'claude_shell.dart';
 export 'confidence_badge.dart';
 export 'document_thumb.dart';
 export 'glass_bar.dart';

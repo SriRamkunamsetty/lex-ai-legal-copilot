@@ -36,6 +36,31 @@ class DraftVersionSnapshot {
   final String content;
 }
 
+/// Classification of a single line in a revision diff.
+enum DraftDiffKind {
+  /// Line identical between baseline and current revision.
+  unchanged,
+
+  /// Line newly added in current revision.
+  added,
+
+  /// Line removed compared to baseline revision.
+  removed,
+}
+
+/// Single line entry returned by [DraftController.computeLineDiff].
+@immutable
+class DraftDiffLine {
+  /// Creates a [DraftDiffLine].
+  const new({required this.kind, required this.text});
+
+  /// Whether line was added, removed, or kept.
+  final DraftDiffKind kind;
+
+  /// Raw line text.
+  final String text;
+}
+
 /// Immutable UI state for [DraftController].
 @immutable
 class DraftState {
@@ -313,5 +338,47 @@ class DraftController extends _$DraftController {
       title: '${state.template.label} - Lex Draft',
       bodyText: combined,
     );
+  }
+
+  /// Computes a clean LCS line-level diff between [previous] and [current].
+  static List<DraftDiffLine> computeLineDiff(String previous, String current) {
+    final a = previous.split('\n');
+    final b = current.split('\n');
+    final n = a.length;
+    final m = b.length;
+    final dp = List.generate(n + 1, (_) => List<int>.filled(m + 1, 0));
+    for (var i = n - 1; i >= 0; i--) {
+      for (var j = m - 1; j >= 0; j--) {
+        if (a[i] == b[j]) {
+          dp[i][j] = dp[i + 1][j + 1] + 1;
+        } else {
+          dp[i][j] = dp[i + 1][j] >= dp[i][j + 1] ? dp[i + 1][j] : dp[i][j + 1];
+        }
+      }
+    }
+
+    final result = <DraftDiffLine>[];
+    var i = 0;
+    var j = 0;
+    while (i < n && j < m) {
+      if (a[i] == b[j]) {
+        result.add(DraftDiffLine(kind: DraftDiffKind.unchanged, text: a[i]));
+        i++;
+        j++;
+      } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+        result.add(DraftDiffLine(kind: DraftDiffKind.removed, text: a[i]));
+        i++;
+      } else {
+        result.add(DraftDiffLine(kind: DraftDiffKind.added, text: b[j]));
+        j++;
+      }
+    }
+    while (i < n) {
+      result.add(DraftDiffLine(kind: DraftDiffKind.removed, text: a[i++]));
+    }
+    while (j < m) {
+      result.add(DraftDiffLine(kind: DraftDiffKind.added, text: b[j++]));
+    }
+    return result;
   }
 }

@@ -158,6 +158,26 @@ class CloudGemmaService implements LlmService {
         NetworkFailure('Cloud document image analysis failed.', cause: error),
   );
 
+  /// Executes bounded multi-node verification research via `/v1/research/verified`.
+  Future<Result<Map<String, dynamic>>> verifiedResearch(
+    String query, {
+    double temperature = 0.1,
+  }) => Result.guard(
+    () async {
+      final redaction = PiiRedactor.redact(query);
+      final response = await _httpClient.dio.post<Map<String, dynamic>>(
+        '/v1/research/verified',
+        data: {'query': redaction.redactedText, 'temperature': temperature},
+      );
+      final data = Map<String, dynamic>.from(response.data ?? const {});
+      final rawAnswer = data['answer_text'] as String? ?? '';
+      data['answer_text'] = redaction.restore(rawAnswer);
+      return data;
+    },
+    onError: (error, _) =>
+        NetworkFailure('Cloud verified research failed: $error', cause: error),
+  );
+
   Future<String> _singleCompletion(
     String redactedPrompt, {
     required List<Uint8List> images,

@@ -26,6 +26,7 @@ import pymupdf
 import requests
 
 from scripts.ingest_constitution import parse_constitution_pdf
+from scripts.verify_sources import DEFAULT_ACT_MIRRORS, verify_and_fetch_official_pdf
 
 CACHE_PDF_DIR = Path("data/cache/pdfs")
 PACKS_DIR = Path("assets/corpus/packs")
@@ -211,7 +212,9 @@ def build_packs() -> dict[str, Any]:
 
     for meta in PRIORITY_CENTRAL_SOURCES:
         dest = CACHE_PDF_DIR / f"{meta['act_code']}.pdf"
-        fetched = _try_fetch_pdf(meta["url"], dest)
+        mirrors = DEFAULT_ACT_MIRRORS.get(meta["act_code"], [meta["url"]])
+        src_check = verify_and_fetch_official_pdf(meta["act_code"], mirrors, dest)
+        fetched = Path(src_check.local_pdf_path) if src_check.verified and src_check.local_pdf_path else None
         parsed: list[dict[str, Any]] = []
         if fetched is not None:
             try:

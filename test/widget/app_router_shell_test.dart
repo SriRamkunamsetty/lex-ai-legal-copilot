@@ -53,25 +53,28 @@ void main() {
       await tester.tap(find.text('Open your legal desk'));
       await tester.pumpAndSettle();
 
-      // Home screen + bottom navigation bar
+      // Home screen + Claude 4-icon bottom navigation bar (no ask bar on Home)
       expect(find.text('Your legal desk'), findsOneWidget);
-      expect(find.text('Home'), findsOneWidget);
-      expect(find.text('Scan'), findsOneWidget);
-      expect(find.text('Ask'), findsOneWidget);
-      expect(find.text('Library'), findsOneWidget);
+      expect(find.byTooltip('Home'), findsOneWidget);
+      expect(find.byTooltip('Scan'), findsOneWidget);
+      expect(find.byTooltip('Ask'), findsOneWidget);
+      expect(find.byTooltip('Library'), findsOneWidget);
+      expect(find.text('Type or hold to talk'), findsNothing);
 
       // Navigate to Scan, Ask, Library tabs
-      await tester.tap(find.text('Scan'));
+      await tester.tap(find.byTooltip('Scan'));
       await tester.pumpAndSettle();
       expect(find.text('Scan document'), findsOneWidget);
+      expect(find.text('Type or hold to talk'), findsNothing);
 
-      await tester.tap(find.text('Ask'));
+      await tester.tap(find.byTooltip('Ask'));
       await tester.pumpAndSettle();
-      expect(find.text('Ask Lex'), findsOneWidget);
+      expect(find.text('Type or hold to talk'), findsOneWidget);
 
-      await tester.tap(find.text('Library'));
+      await tester.tap(find.byTooltip('Library'));
       await tester.pumpAndSettle();
       expect(find.text('Library'), findsWidgets);
+      expect(find.text('Type or hold to talk'), findsNothing);
 
       // Search BNS 304 offline in Library and open Section Reader
       await tester.enterText(find.byType(TextField), '304');
@@ -108,7 +111,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
-      expect(scaffold.backgroundColor, const Color(0xFF0B0B0D));
+      expect(scaffold.backgroundColor, const Color(0xFF121211));
 
       // Unmount ProviderScope and flush Drift's StreamQueryStore zero-delay timer.
       await tester.pumpWidget(const SizedBox.shrink());

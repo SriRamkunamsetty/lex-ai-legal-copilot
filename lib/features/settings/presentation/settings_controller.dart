@@ -33,7 +33,7 @@ class SettingsController extends _$SettingsController {
     );
   }
 
-  /// Applies [transform] to the current settings immediately and persists it.
+  /// Applies [transform] to the current settings immediately in memory and persists it.
   Future<void> update(
     LexSettings Function(LexSettings current) transform,
   ) async {
